@@ -30,6 +30,7 @@ graph-node: func [
         parents: either parents [parent-nodes] [make block! 0]
         grad-fn: either grad-fn [grad-func] [none]
         grad-computed: false
+        is-leaf: true  ; Initially all nodes are leaves
     ]
 ]
 
@@ -41,6 +42,7 @@ add-child: func [
 ] [
     if not find node/children child [
         append node/children child
+        child/is-leaf: false  ; Child is no longer a leaf
     ]
 ]
 
@@ -52,6 +54,7 @@ add-parent: func [
 ] [
     if not find node/parents parent [
         append node/parents parent
+        node/is-leaf: false  ; Node is no longer a leaf if it has parents
     ]
 ]
 
@@ -62,25 +65,25 @@ topological-sort: func [
 ] [
     sorted: make block! length? nodes
     visited: make block! length? nodes
-    
+
     visit: func [node] [
         if find visited node [return]  ; Already visited
         append visited node
-        
+
         ; Visit all children first
         foreach child node/children [
             visit child
         ]
-        
+
         ; Then add current node
         append sorted node
     ]
-    
+
     ; Visit all nodes
     foreach node nodes [
         visit node
     ]
-    
+
     sorted
 ]
 
@@ -98,11 +101,11 @@ backward: func [
             append grad-out 1.0
         ]
     ]
-    
+
     ; Set output node gradient
     output-node/grad: copy grad-out
     output-node/grad-computed: true
-    
+
     ; Get all nodes in the computational graph
     all-nodes: make block! 100
     collect-nodes: func [node] [
@@ -114,16 +117,16 @@ backward: func [
         ]
     ]
     collect-nodes output-node
-    
+
     ; Topologically sort nodes (from output to input)
     sorted-nodes: reverse topological-sort all-nodes
-    
+
     ; Propagate gradients backwards
     foreach node sorted-nodes [
         if node/grad-computed and node/grad-fn [
             ; Compute gradients with respect to inputs
             parent-grads: node/grad-fn node/grad
-            
+
             ; Distribute gradients to parents
             repeat i length? node/parents [
                 parent: node/parents/:i
@@ -132,11 +135,13 @@ backward: func [
                         parent/grad: make block! length? parent/data
                         loop length? parent/data [append parent/grad 0.0]
                     ]
-                    
+
                     ; Accumulate gradients
                     parent-grad-block: parent-grads/:i
                     repeat j length? parent/grad [
-                        parent/grad/:j: parent/grad/:j + parent-grad-block/:j
+                        if j <= length? parent-grad-block [
+                            parent/grad/:j: parent/grad/:j + parent-grad-block/:j
+                        ]
                     ]
                     parent/grad-computed: true
                 ]
@@ -155,10 +160,10 @@ autograd: context [
     ] [
         ; Convert number to block if needed
         if number? data [data: reduce [data]]
-        
+
         graph-node/requires-grad data requires-grad
     ]
-    
+
     ;; Add operation
     add-op: func [
         "Add operation with gradient computation"
@@ -167,7 +172,7 @@ autograd: context [
     ] [
         ; Check if either requires gradients
         requires-grad: a/requires-grad or b/requires-grad
-        
+
         ; Compute result
         result-data: copy a/data
         repeat i length? result-data [
@@ -175,34 +180,34 @@ autograd: context [
                 result-data/:i: result-data/:i + b/data/:i
             ]
         ]
-        
+
         ; Create result node
         result-node: graph-node/requires-grad result-data requires-grad
-        
+
         ; Set up computational graph connections
         if requires-grad [
             add-child a result-node
             add-child b result-node
             add-parent result-node a
             add-parent result-node b
-            
+
             ; Define gradient function
             result-node/grad-fn: func [grad-output] [
                 ; Gradient with respect to a is the same as gradient output
                 grad-a: copy grad-output
                 while [length? grad-a > length? a/data] [take/last grad-a]
-                
+
                 ; Gradient with respect to b is the same as gradient output
                 grad-b: copy grad-output
                 while [length? grad-b > length? b/data] [take/last grad-b]
-                
+
                 reduce [grad-a grad-b]
             ]
         ]
-        
+
         result-node
     ]
-    
+
     ;; Multiply operation
     mul-op: func [
         "Multiply operation with gradient computation"
@@ -211,7 +216,7 @@ autograd: context [
     ] [
         ; Check if either requires gradients
         requires-grad: a/requires-grad or b/requires-grad
-        
+
         ; Compute result
         result-data: copy a/data
         repeat i length? result-data [
@@ -219,17 +224,17 @@ autograd: context [
                 result-data/:i: result-data/:i * b/data/:i
             ]
         ]
-        
+
         ; Create result node
         result-node: graph-node/requires-grad result-data requires-grad
-        
+
         ; Set up computational graph connections
         if requires-grad [
             add-child a result-node
             add-child b result-node
             add-parent result-node a
             add-parent result-node b
-            
+
             ; Define gradient function
             result-node/grad-fn: func [grad-output] [
                 ; Gradient with respect to a is grad_output * b
@@ -240,7 +245,7 @@ autograd: context [
                     ]
                 ]
                 while [length? grad-a > length? a/data] [take/last grad-a]
-                
+
                 ; Gradient with respect to b is grad_output * a
                 grad-b: copy grad-output
                 repeat i length? grad-b [
@@ -249,14 +254,14 @@ autograd: context [
                     ]
                 ]
                 while [length? grad-b > length? b/data] [take/last grad-b]
-                
+
                 reduce [grad-a grad-b]
             ]
         ]
-        
+
         result-node
     ]
-    
+
     ;; Matrix multiplication operation
     matmul-op: func [
         "Matrix multiplication operation with gradient computation"
@@ -265,7 +270,7 @@ autograd: context [
     ] [
         ; Check if either requires gradients
         requires-grad: a/requires-grad or b/requires-grad
-        
+
         ; Compute matrix multiplication
         ; Assuming a is [rows_a x cols_a] and b is [cols_a x cols_b]
         ; Result will be [rows_a x cols_b]
@@ -273,10 +278,10 @@ autograd: context [
         cols-a: a/shape/2
         rows-b: b/shape/1
         cols-b: b/shape/2
-        
+
         result-data: make block! (rows-a * cols-b)
         loop (rows-a * cols-b) [append result-data 0.0]
-        
+
         repeat i rows-a [
             repeat j cols-b [
                 sum: 0.0
@@ -289,24 +294,24 @@ autograd: context [
                 result-data/:idx-result: sum
             ]
         ]
-        
+
         ; Create result node
         result-node: graph-node/requires-grad result-data requires-grad
         result-node/shape: reduce [rows-a cols-b]
-        
+
         ; Set up computational graph connections
         if requires-grad [
             add-child a result-node
             add-child b result-node
             add-parent result-node a
             add-parent result-node b
-            
+
             ; Define gradient function
             result-node/grad-fn: func [grad-output] [
                 ; Gradient with respect to a is grad_output * b^T
                 grad-a: make block! length? a/data
                 loop length? a/data [append grad-a 0.0]
-                
+
                 repeat i rows-a [
                     repeat j cols-a [
                         sum: 0.0
@@ -319,11 +324,11 @@ autograd: context [
                         grad-a/:a-idx: sum
                     ]
                 ]
-                
+
                 ; Gradient with respect to b is a^T * grad_output
                 grad-b: make block! length? b/data
                 loop length? b/data [append grad-b 0.0]
-                
+
                 repeat i rows-b [
                     repeat j cols-b [
                         sum: 0.0
@@ -336,11 +341,237 @@ autograd: context [
                         grad-b/:b-idx: sum
                     ]
                 ]
-                
+
                 reduce [grad-a grad-b]
             ]
         ]
-        
+
         result-node
     ]
+
+    ;; Power operation with gradient computation
+    pow-op: func [
+        "Power operation with gradient computation"
+        base [object!]
+        exponent [number!]
+    ] [
+        requires-grad: base/requires-grad
+
+        ; Compute result: base^exponent
+        result-data: copy base/data
+        repeat i length? result-data [
+            result-data/:i: power result-data/:i exponent
+        ]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child base result-node
+            add-parent result-node base
+
+            ; Define gradient function: d/dx(x^n) = n*x^(n-1)
+            result-node/grad-fn: func [grad-output] [
+                grad-base: copy grad-output
+                repeat i length? grad-base [
+                    if i <= length? base/data [
+                        grad-base/:i: grad-base/:i * exponent * power(base/data/:i (exponent - 1))
+                    ]
+                ]
+                while [length? grad-base > length? base/data] [take/last grad-base]
+
+                reduce [grad-base]
+            ]
+        ]
+
+        result-node
+    ]
+
+    ;; Exponential operation with gradient computation
+    exp-op: func [
+        "Exponential operation with gradient computation"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Compute result: e^x
+        result-data: copy x/data
+        repeat i length? result-data [
+            result-data/:i: exp result-data/:i
+        ]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child x result-node
+            add-parent result-node x
+
+            ; Define gradient function: d/dx(e^x) = e^x
+            result-node/grad-fn: func [grad-output] [
+                grad-x: copy grad-output
+                repeat i length? grad-x [
+                    if i <= length? result-data [
+                        grad-x/:i: grad-x/:i * result-data/:i  ; grad_output * e^x
+                    ]
+                ]
+                while [length? grad-x > length? x/data] [take/last grad-x]
+
+                reduce [grad-x]
+            ]
+        ]
+
+        result-node
+    ]
+
+    ;; Natural logarithm operation with gradient computation
+    log-op: func [
+        "Natural logarithm operation with gradient computation"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Compute result: ln(x)
+        result-data: copy x/data
+        repeat i length? result-data [
+            result-data/:i: log-e result-data/:i
+        ]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child x result-node
+            add-parent result-node x
+
+            ; Define gradient function: d/dx(ln(x)) = 1/x
+            result-node/grad-fn: func [grad-output] [
+                grad-x: copy grad-output
+                repeat i length? grad-x [
+                    if i <= length? x/data [
+                        grad-x/:i: grad-x/:i / x/data/:i  ; grad_output * (1/x)
+                    ]
+                ]
+                while [length? grad-x > length? x/data] [take/last grad-x]
+
+                reduce [grad-x]
+            ]
+        ]
+
+        result-node
+    ]
+
+    ;; Sine operation with gradient computation
+    sin-op: func [
+        "Sine operation with gradient computation"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Compute result: sin(x)
+        result-data: copy x/data
+        repeat i length? result-data [
+            result-data/:i: sine result-data/:i
+        ]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child x result-node
+            add-parent result-node x
+
+            ; Define gradient function: d/dx(sin(x)) = cos(x)
+            result-node/grad-fn: func [grad-output] [
+                grad-x: copy grad-output
+                repeat i length? grad-x [
+                    if i <= length? x/data [
+                        grad-x/:i: grad-x/:i * cosine(x/data/:i)  ; grad_output * cos(x)
+                    ]
+                ]
+                while [length? grad-x > length? x/data] [take/last grad-x]
+
+                reduce [grad-x]
+            ]
+        ]
+
+        result-node
+    ]
+
+    ;; Cosine operation with gradient computation
+    cos-op: func [
+        "Cosine operation with gradient computation"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Compute result: cos(x)
+        result-data: copy x/data
+        repeat i length? result-data [
+            result-data/:i: cosine result-data/:i
+        ]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child x result-node
+            add-parent result-node x
+
+            ; Define gradient function: d/dx(cos(x)) = -sin(x)
+            result-node/grad-fn: func [grad-output] [
+                grad-x: copy grad-output
+                repeat i length? grad-x [
+                    if i <= length? x/data [
+                        grad-x/:i: grad-x/:i * (0.0 - sine(x/data/:i))  ; grad_output * (-sin(x))
+                    ]
+                ]
+                while [length? grad-x > length? x/data] [take/last grad-x]
+
+                reduce [grad-x]
+            ]
+        ]
+
+        result-node
+    ]
+
+    ;; Mean operation with gradient computation
+    mean-op: func [
+        "Mean operation with gradient computation"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Compute mean
+        total: 0.0
+        foreach val x/data [total: total + val]
+        mean-val: total / length? x/data
+        result-data: reduce [mean-val]
+
+        ; Create result node
+        result-node: graph-node/requires-grad result-data requires-grad
+
+        ; Set up computational graph connections
+        if requires-grad [
+            add-child x result-node
+            add-parent result-node x
+
+            ; Define gradient function: d/dx_i(mean) = 1/n for all i
+            result-node/grad-fn: func [grad-output] [
+                n: length? x/data
+                grad-x: make block! n
+                loop n [append grad-x (grad-output/1 / n)]  ; Distribute gradient equally
+
+                reduce [grad-x]
+            ]
+        ]
+
+        result-node
+    ]
+
 ]
