@@ -1,7 +1,7 @@
 REBOL [
     Title: "Test Shape Access"
     Description: "Test shape access syntax"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
