@@ -1,7 +1,7 @@
 REBOL [
     Title: "Test Core Tensor Grad"
     Description: "Test core tensor grad function directly"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
