@@ -36,15 +36,43 @@ Covenant is intentionally conservative in its design choices.
 
 ---
 
-## Features
+## Features (v1.1.0)
 
-- Tensor abstraction
-- Basic tensor operations
-- Automatic differentiation
-- Centralized computational graph
-- Gradient propagation and accumulation
-- Neural network components
-- Optimizers for parameter updates
+### Core Tensor Operations
+- Tensor creation with multiple data types (float32, int32, int64)
+- Basic operations: add, multiply, matrix multiplication
+- Advanced operations: power, square root, exponential, logarithm
+- Statistical operations: max, min, argmax, argmin
+- Shape manipulation: reshape, transpose, flatten
+- Range operations: arange, linspace
+
+### Neural Network Components
+- Linear (fully connected) layers
+- Activation functions: ReLU, Leaky ReLU, Sigmoid, Tanh, Softmax
+- Loss functions: MSE, Cross Entropy
+- Convolutional layers (1D)
+- Normalization: BatchNorm1d
+- Regularization: Dropout
+- Sequential models for layer chaining
+
+### Automatic Differentiation
+- Computational graph tracking
+- Gradient computation for basic and advanced operations
+- Backpropagation system
+- Support for mathematical functions (exp, log, sin, cos)
+
+### Optimization Algorithms
+- SGD with momentum and Nesterov acceleration
+- Adam optimizer
+- RMSprop
+- Adagrad
+- Adadelta
+- Learning rate schedulers (step, exponential)
+
+### Utilities
+- Data loading and preprocessing
+- Model saving and loading
+- Visualization tools
 
 ---
 
@@ -68,6 +96,24 @@ Covenant is loaded directly as a REBOL project.
 
 Typical usage involves loading the main entry file and interacting with the provided APIs.
 APIs may evolve as the project develops.
+
+```rebol
+;; Load the framework
+do %covenant.reb
+
+;; Create tensors
+x: covenant/tensor [1.0 2.0 3.0]
+y: covenant/tensor [4.0 5.0 6.0]
+
+;; Perform operations
+sum: covenant/add x y
+print ["Result:" mold sum/data]
+
+;; Create neural network layers
+layer: covenant/nn/linear 3 2
+output: layer/forward x
+print ["Network output:" mold output/data]
+```
 
 ---
 
