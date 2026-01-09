@@ -1,4 +1,4 @@
-# Covenant AI Framework - API Reference
+# Covenant AI Framework - API Reference v1.1.0
 
 ## Table of Contents
 1. [Core Tensor Operations](#core-tensor-operations)
@@ -10,322 +10,201 @@
 ## Core Tensor Operations
 
 ### `covenant/tensor`
-Creates a tensor from input data with optional gradient tracking.
+Creates a tensor from input data with optional gradient tracking and data type specification.
 
 **Syntax:**
 ```
 covenant/tensor data
 covenant/tensor/requires_grad data
+covenant/tensor/dtype data data-type
 ```
 
 **Parameters:**
 - `data`: Block of numbers or nested blocks representing tensor data
 - `/requires_grad`: Optional refinement to enable gradient tracking
+- `/dtype`: Optional refinement to specify data type
+- `data-type`: Word specifying data type (float32, int32, int64)
 
 **Returns:**
-An object with `data`, `shape`, and `dtype` fields. If gradient tracking is enabled, also includes `grad`, `requires_grad`, `grad_fn`, and `parents` fields.
+Object with tensor data, shape, and dtype properties.
 
-**Example:**
-```
-x: covenant/tensor [1.0 2.0 3.0]
-y: covenant/tensor/requires_grad [4.0 5.0 6.0]
-```
-
-### `covenant/zeros`
-Creates a tensor filled with zeros.
+### `covenant/arange`
+Creates a tensor with evenly spaced values within a given interval.
 
 **Syntax:**
 ```
-covenant/zeros shape
+covenant/arange start end
+covenant/arange/step start end step-size
 ```
 
 **Parameters:**
-- `shape`: Block specifying the tensor dimensions
+- `start`: Starting value
+- `end`: Ending value (exclusive)
+- `/step`: Optional refinement to specify step size
+- `step-size`: Step size (default: 1.0)
 
 **Returns:**
-A tensor object filled with zeros.
+1D tensor with evenly spaced values.
 
-**Example:**
-```
-zero-tensor: covenant/zeros [2 3]  ; Creates 2x3 matrix of zeros
-```
-
-### `covenant/ones`
-Creates a tensor filled with ones.
+### `covenant/linspace`
+Creates a tensor with linearly spaced values between start and end.
 
 **Syntax:**
 ```
-covenant/ones shape
+covenant/linspace start end num
 ```
 
 **Parameters:**
-- `shape`: Block specifying the tensor dimensions
+- `start`: Starting value
+- `end`: Ending value (inclusive)
+- `num`: Number of points
 
 **Returns:**
-A tensor object filled with ones.
+1D tensor with linearly spaced values.
 
-**Example:**
-```
-ones-tensor: covenant/ones [3 2]  ; Creates 3x2 matrix of ones
-```
-
-### `covenant/rand`
-Creates a tensor filled with random values.
+### `covenant/pow`
+Raises tensor elements to a specified power.
 
 **Syntax:**
 ```
-covenant/rand shape
+covenant/pow tensor exponent
 ```
 
 **Parameters:**
-- `shape`: Block specifying the tensor dimensions
+- `tensor`: Input tensor
+- `exponent`: Power to raise to
 
 **Returns:**
-A tensor object filled with random values between 0 and 1.
+Tensor with elements raised to the specified power.
 
-**Example:**
-```
-random-tensor: covenant/rand [2 2]  ; Creates 2x2 matrix of random values
-```
-
-### `covenant/add`
-Element-wise addition of two tensors.
+### `covenant/sqrt`
+Computes square root of tensor elements.
 
 **Syntax:**
 ```
-covenant/add tensor1 tensor2
+covenant/sqrt tensor
 ```
 
 **Parameters:**
-- `tensor1`, `tensor2`: Tensor objects with the same shape
+- `tensor`: Input tensor
 
 **Returns:**
-A new tensor with element-wise sum.
+Tensor with square root of elements.
 
-**Example:**
-```
-a: covenant/tensor [1.0 2.0]
-b: covenant/tensor [3.0 4.0]
-c: covenant/add a b  ; Results in [4.0 6.0]
-```
-
-### `covenant/mul`
-Element-wise multiplication of two tensors.
+### `covenant/exp`
+Computes exponential of tensor elements.
 
 **Syntax:**
 ```
-covenant/mul tensor1 tensor2
+covenant/exp tensor
 ```
 
 **Parameters:**
-- `tensor1`, `tensor2`: Tensor objects with the same shape
+- `tensor`: Input tensor
 
 **Returns:**
-A new tensor with element-wise product.
+Tensor with exponential of elements.
 
-**Example:**
-```
-a: covenant/tensor [1.0 2.0]
-b: covenant/tensor [3.0 4.0]
-c: covenant/mul a b  ; Results in [3.0 8.0]
-```
-
-### `covenant/matmul`
-Matrix multiplication of two tensors.
+### `covenant/log`
+Computes natural logarithm of tensor elements.
 
 **Syntax:**
 ```
-covenant/matmul tensor1 tensor2
+covenant/log tensor
 ```
 
 **Parameters:**
-- `tensor1`, `tensor2`: 2D tensor objects with compatible dimensions
+- `tensor`: Input tensor
 
 **Returns:**
-A new tensor with the matrix product.
+Tensor with natural logarithm of elements.
 
-**Example:**
-```
-a: covenant/tensor [[1.0 2.0] [3.0 4.0]]
-b: covenant/tensor [[5.0 6.0] [7.0 8.0]]
-c: covenant/matmul a b  ; Results in [[19.0 22.0] [43.0 50.0]]
-```
-
-### `covenant/reshape`
-Reshapes a tensor to a new shape.
+### `covenant/max`
+Computes maximum value along specified axis.
 
 **Syntax:**
 ```
-covenant/reshape tensor new-shape
+covenant/max tensor
+covenant/max/axis tensor axis-val
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
-- `new-shape`: Block specifying the new dimensions
+- `tensor`: Input tensor
+- `/axis`: Optional refinement to specify axis
+- `axis-val`: Axis along which to compute max (0-indexed)
 
 **Returns:**
-A new tensor with the specified shape.
+Maximum value or tensor of maximum values along axis.
 
-**Example:**
-```
-a: covenant/tensor [1.0 2.0 3.0 4.0]
-b: covenant/reshape a [2 2]  ; Reshapes to 2x2 matrix
-```
-
-### `covenant/sum`
-Computes the sum of tensor elements along a specified axis.
+### `covenant/min`
+Computes minimum value along specified axis.
 
 **Syntax:**
 ```
-covenant/sum tensor axis
+covenant/min tensor
+covenant/min/axis tensor axis-val
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
-- `axis`: Integer specifying the axis along which to sum
+- `tensor`: Input tensor
+- `/axis`: Optional refinement to specify axis
+- `axis-val`: Axis along which to compute min (0-indexed)
 
 **Returns:**
-A new tensor with the sum computed along the specified axis.
+Minimum value or tensor of minimum values along axis.
 
-**Example:**
-```
-a: covenant/tensor [[1.0 2.0] [3.0 4.0]]
-row-sums: covenant/sum a 1  ; Sum along rows: [3.0 7.0]
-col-sums: covenant/sum a 0  ; Sum along columns: [4.0 6.0]
-```
-
-### `covenant/concat`
-Concatenates tensors along a specified axis.
+### `covenant/argmax`
+Computes index of maximum value along specified axis.
 
 **Syntax:**
 ```
-covenant/concat tensors axis
-covenant/concat/axis tensors axis-number
+covenant/argmax tensor
+covenant/argmax/axis tensor axis-val
 ```
 
 **Parameters:**
-- `tensors`: Block of tensor objects with compatible shapes
-- `axis`: Integer specifying the axis along which to concatenate
+- `tensor`: Input tensor
+- `/axis`: Optional refinement to specify axis
+- `axis-val`: Axis along which to compute argmax (0-indexed)
 
 **Returns:**
-A new tensor with concatenated data.
+Index of maximum value or tensor of indices along axis.
 
-**Example:**
-```
-a: covenant/tensor [1.0 2.0]
-b: covenant/tensor [3.0 4.0]
-c: covenant/concat reduce [a b] 0  ; Concatenates along axis 0: [1.0 2.0 3.0 4.0]
-```
-
-### `covenant/stack`
-Stacks tensors along a new axis.
+### `covenant/argmin`
+Computes index of minimum value along specified axis.
 
 **Syntax:**
 ```
-covenant/stack tensors dim
+covenant/argmin tensor
+covenant/argmin/axis tensor axis-val
 ```
 
 **Parameters:**
-- `tensors`: Block of tensor objects with the same shape
-- `dim`: Integer specifying the dimension along which to stack
+- `tensor`: Input tensor
+- `/axis`: Optional refinement to specify axis
+- `axis-val`: Axis along which to compute argmin (0-indexed)
 
 **Returns:**
-A new tensor with an additional dimension.
+Index of minimum value or tensor of indices along axis.
 
-**Example:**
-```
-a: covenant/tensor [1.0 2.0]
-b: covenant/tensor [3.0 4.0]
-c: covenant/stack reduce [a b] 0  ; Stacks along new axis 0
-```
-
-### `covenant/mean`
-Computes the mean of tensor elements.
+### `covenant/transpose`
+Transposes a 2D tensor.
 
 **Syntax:**
 ```
-covenant/mean tensor
-covenant/mean/axis tensor axis-number
+covenant/transpose tensor
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
-- `axis`: Optional axis along which to compute the mean
+- `tensor`: Input 2D tensor
 
 **Returns:**
-A new tensor with the computed mean(s).
-
-**Example:**
-```
-a: covenant/tensor [1.0 2.0 3.0 4.0]
-avg: covenant/mean a  ; Computes global mean: [2.5]
-```
-
-### `covenant/flatten`
-Flattens a tensor to 1D.
-
-**Syntax:**
-```
-covenant/flatten tensor
-```
-
-**Parameters:**
-- `tensor`: Input tensor object
-
-**Returns:**
-A new 1D tensor with all elements.
-
-**Example:**
-```
-a: covenant/tensor [[1.0 2.0] [3.0 4.0]]
-flat: covenant/flatten a  ; Results in [1.0 2.0 3.0 4.0]
-```
-
-### `covenant/view`
-Creates a view of a tensor with a different shape.
-
-**Syntax:**
-```
-covenant/view tensor new-shape
-```
-
-**Parameters:**
-- `tensor`: Input tensor object
-- `new-shape`: Block specifying the new dimensions
-
-**Returns:**
-A new tensor with the specified shape.
-
-**Example:**
-```
-a: covenant/tensor [1.0 2.0 3.0 4.0]
-b: covenant/view a [2 2]  ; Creates 2x2 view
-```
-
-### `covenant/clone`
-Creates a copy of a tensor.
-
-**Syntax:**
-```
-covenant/clone tensor
-```
-
-**Parameters:**
-- `tensor`: Input tensor object
-
-**Returns:**
-A new tensor with copied data.
-
-**Example:**
-```
-a: covenant/tensor [1.0 2.0 3.0]
-b: covenant/clone a  ; Creates a copy of a
-```
+Transposed tensor with swapped dimensions.
 
 ## Neural Network Layers
 
 ### `covenant/nn/linear`
-Creates a linear (fully connected) layer.
+Creates a linear (fully connected) layer with autograd support.
 
 **Syntax:**
 ```
@@ -333,101 +212,115 @@ covenant/nn/linear input-size output-size
 ```
 
 **Parameters:**
-- `input-size`: Integer specifying the size of input features
-- `output-size`: Integer specifying the size of output features
+- `input-size`: Size of input features
+- `output-size`: Size of output features
 
 **Returns:**
-A linear layer object with `forward` method.
-
-**Example:**
-```
-layer: covenant/nn/linear 10 5  ; 10 inputs -> 5 outputs
-input: covenant/tensor [1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
-output: layer/forward input
-```
+Linear layer object with forward method.
 
 ### `covenant/nn/relu`
-Applies ReLU activation function.
+Creates a ReLU activation function with gradient tracking.
 
 **Syntax:**
 ```
-covenant/nn/relu tensor
+covenant/nn/relu x
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
+- `x`: Input tensor
 
 **Returns:**
-A new tensor with ReLU applied element-wise.
+Tensor with ReLU activation applied.
 
-**Example:**
+### `covenant/nn/leaky_relu`
+Creates a Leaky ReLU activation function with gradient tracking.
+
+**Syntax:**
 ```
-a: covenant/tensor [-1.0 0.0 1.0 2.0]
-b: covenant/nn/relu a  ; Results in [0.0 0.0 1.0 2.0]
+covenant/nn/leaky_relu x alpha
 ```
+
+**Parameters:**
+- `x`: Input tensor
+- `alpha`: Negative slope parameter (default: 0.01)
+
+**Returns:**
+Tensor with Leaky ReLU activation applied.
 
 ### `covenant/nn/sigmoid`
-Applies Sigmoid activation function.
+Creates a Sigmoid activation function with gradient tracking.
 
 **Syntax:**
 ```
-covenant/nn/sigmoid tensor
+covenant/nn/sigmoid x
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
+- `x`: Input tensor
 
 **Returns:**
-A new tensor with Sigmoid applied element-wise.
-
-**Example:**
-```
-a: covenant/tensor [0.0 1.0 2.0]
-b: covenant/nn/sigmoid a
-```
+Tensor with Sigmoid activation applied.
 
 ### `covenant/nn/tanh`
-Applies Tanh activation function.
+Creates a Tanh activation function with gradient tracking.
 
 **Syntax:**
 ```
-covenant/nn/tanh tensor
+covenant/nn/tanh x
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
+- `x`: Input tensor
 
 **Returns:**
-A new tensor with Tanh applied element-wise.
-
-**Example:**
-```
-a: covenant/tensor [0.0 1.0 2.0]
-b: covenant/nn/tanh a
-```
+Tensor with Tanh activation applied.
 
 ### `covenant/nn/softmax`
-Applies Softmax activation function.
+Creates a Softmax activation function with gradient tracking.
 
 **Syntax:**
 ```
-covenant/nn/softmax tensor
+covenant/nn/softmax x
 ```
 
 **Parameters:**
-- `tensor`: Input tensor object
+- `x`: Input tensor
 
 **Returns:**
-A new tensor with Softmax applied.
+Tensor with Softmax activation applied.
 
-**Example:**
+### `covenant/nn/mse_loss`
+Creates a Mean Squared Error loss function with gradient tracking.
+
+**Syntax:**
 ```
-a: covenant/tensor [1.0 2.0 3.0]
-b: covenant/nn/softmax a
+covenant/nn/mse_loss predictions targets
 ```
+
+**Parameters:**
+- `predictions`: Predicted values tensor
+- `targets`: Target values tensor
+
+**Returns:**
+Scalar tensor with MSE loss value.
+
+### `covenant/nn/cross_entropy_loss`
+Creates a Cross Entropy loss function with gradient tracking.
+
+**Syntax:**
+```
+covenant/nn/cross_entropy_loss predictions targets
+```
+
+**Parameters:**
+- `predictions`: Predicted values tensor
+- `targets`: Target values tensor
+
+**Returns:**
+Scalar tensor with Cross Entropy loss value.
 
 ### `covenant/nn/conv1d`
-Creates a 1D convolutional layer.
+Creates a 1D convolutional layer with autograd support.
 
 **Syntax:**
 ```
@@ -440,54 +333,24 @@ covenant/nn/conv1d in-channels out-channels kernel-size
 - `kernel-size`: Size of the convolution kernel
 
 **Returns:**
-A 1D convolutional layer object with `forward` method.
-
-**Example:**
-```
-conv-layer: covenant/nn/conv1d 1 16 3  ; 1 input channel, 16 output channels, kernel size 3
-```
-
-### `covenant/nn/maxpool1d`
-Creates a 1D max pooling layer.
-
-**Syntax:**
-```
-covenant/nn/maxpool1d kernel-size stride
-```
-
-**Parameters:**
-- `kernel-size`: Size of the pooling kernel
-- `stride`: Stride for pooling
-
-**Returns:**
-A 1D max pooling layer object with `forward` method.
-
-**Example:**
-```
-pool-layer: covenant/nn/maxpool1d 2 2  ; Kernel size 2, stride 2
-```
+Conv1D layer object with forward method.
 
 ### `covenant/nn/dropout`
-Creates a dropout layer.
+Creates a Dropout layer with probability p.
 
 **Syntax:**
 ```
-covenant/nn/dropout probability
+covenant/nn/dropout p
 ```
 
 **Parameters:**
-- `probability`: Dropout probability (0.0 to 1.0)
+- `p`: Dropout probability (default: 0.5)
 
 **Returns:**
-A dropout layer object with `forward`, `train`, and `eval` methods.
-
-**Example:**
-```
-dropout-layer: covenant/nn/dropout 0.5  ; 50% dropout
-```
+Dropout layer object with forward method.
 
 ### `covenant/nn/batchnorm1d`
-Creates a 1D batch normalization layer.
+Creates a 1D Batch Normalization layer.
 
 **Syntax:**
 ```
@@ -498,12 +361,21 @@ covenant/nn/batchnorm1d num-features
 - `num-features`: Number of features
 
 **Returns:**
-A 1D batch normalization layer object with `forward`, `train`, and `eval` methods.
+BatchNorm1D layer object with forward method.
 
-**Example:**
+### `covenant/nn/sequential`
+Creates a Sequential module for chaining layers.
+
+**Syntax:**
 ```
-bn-layer: covenant/nn/batchnorm1d 10  ; Batch norm for 10 features
+covenant/nn/sequential layers
 ```
+
+**Parameters:**
+- `layers`: Block of layers to chain
+
+**Returns:**
+Sequential module object with forward method.
 
 ## Optimization Algorithms
 
@@ -512,149 +384,143 @@ Creates a Stochastic Gradient Descent optimizer.
 
 **Syntax:**
 ```
-covenant/optim/sgd parameters learning-rate
+covenant/optim/sgd param-list lr
+covenant/optim/sgd/momentum param-list lr mom
+covenant/optim/sgd/momentum/nesterov param-list lr mom
 ```
 
 **Parameters:**
-- `parameters`: Block of parameters to optimize
-- `learning-rate`: Learning rate for updates
+- `param-list`: Block of parameters to optimize
+- `lr`: Learning rate
+- `/momentum`: Optional refinement to use momentum
+- `mom`: Momentum factor (default: 0.0)
+- `/nesterov`: Optional refinement to use Nesterov momentum
 
 **Returns:**
-An SGD optimizer object with `step` method.
-
-**Example:**
-```
-params: reduce [1.0 2.0 3.0]
-optimizer: covenant/optim/sgd params 0.01
-; Later: optimizer/step gradients
-```
+SGD optimizer object with step method.
 
 ### `covenant/optim/adam`
 Creates an Adam optimizer.
 
 **Syntax:**
 ```
-covenant/optim/adam parameters learning-rate
+covenant/optim/adam param-list lr
+covenant/optim/adam/beta1 param-list lr b1
+covenant/optim/adam/beta1/beta2 param-list lr b1 b2
+covenant/optim/adam/beta1/beta2/epsilon param-list lr b1 b2 eps
 ```
 
 **Parameters:**
-- `parameters`: Block of parameters to optimize
-- `learning-rate`: Learning rate for updates
+- `param-list`: Block of parameters to optimize
+- `lr`: Learning rate
+- `/beta1`: Optional refinement to specify beta1 parameter (default: 0.9)
+- `b1`: Beta1 value
+- `/beta2`: Optional refinement to specify beta2 parameter (default: 0.999)
+- `b2`: Beta2 value
+- `/epsilon`: Optional refinement to specify epsilon parameter (default: 1e-8)
+- `eps`: Epsilon value
 
 **Returns:**
-An Adam optimizer object with `step` method.
+Adam optimizer object with step method.
 
-**Example:**
-```
-params: reduce [1.0 2.0 3.0]
-optimizer: covenant/optim/adam params 0.001
-; Later: optimizer/step gradients
-```
-
-## Utilities
-
-### `covenant/utils/save-model`
-Saves a model to a file.
+### `covenant/optim/rmsprop`
+Creates an RMSprop optimizer.
 
 **Syntax:**
 ```
-covenant/utils/save-model model file-path
+covenant/optim/rmsprop param-list lr
+covenant/optim/rmsprop/alpha param-list lr a
+covenant/optim/rmsprop/alpha/epsilon param-list lr a eps
 ```
 
 **Parameters:**
-- `model`: Model object to save
-- `file-path`: Path to save the model
-
-**Example:**
-```
-covenant/utils/save-model my-model %my-model.dat
-```
-
-### `covenant/utils/load-model`
-Loads a model from a file.
-
-**Syntax:**
-```
-covenant/utils/load-model file-path
-```
-
-**Parameters:**
-- `file-path`: Path to load the model from
+- `param-list`: Block of parameters to optimize
+- `lr`: Learning rate
+- `/alpha`: Optional refinement to specify smoothing constant (default: 0.999)
+- `a`: Alpha value
+- `/epsilon`: Optional refinement to specify epsilon parameter (default: 1e-8)
+- `eps`: Epsilon value
 
 **Returns:**
-Loaded model data.
+RMSprop optimizer object with step method.
 
-**Example:**
-```
-loaded-model: covenant/utils/load-model %my-model.dat
-```
-
-### `covenant/utils/visualize`
-Visualizes a tensor.
+### `covenant/optim/adagrad`
+Creates an Adagrad optimizer.
 
 **Syntax:**
 ```
-covenant/utils/visualize tensor
+covenant/optim/adagrad param-list lr
+covenant/optim/adagrad/epsilon param-list lr eps
 ```
 
 **Parameters:**
-- `tensor`: Tensor object to visualize
-
-**Example:**
-```
-tensor: covenant/tensor [[1.0 2.0] [3.0 4.0]]
-covenant/utils/visualize tensor
-```
-
-### `covenant/utils/load-data`
-Loads data from a file.
-
-**Syntax:**
-```
-covenant/utils/load-data file-path
-covenant/utils/load-data/as-dataset file-path
-```
-
-**Parameters:**
-- `file-path`: Path to load data from
-- `/as-dataset`: Optional refinement to return as dataset object
+- `param-list`: Block of parameters to optimize
+- `lr`: Learning rate
+- `/epsilon`: Optional refinement to specify epsilon parameter (default: 1e-8)
+- `eps`: Epsilon value
 
 **Returns:**
-Loaded data or dataset object.
+Adagrad optimizer object with step method.
 
-**Example:**
-```
-data: covenant/utils/load-data %data.txt
-```
-
-### `covenant/utils/evaluate`
-Evaluates model performance.
+### `covenant/optim/adadelta`
+Creates an Adadelta optimizer.
 
 **Syntax:**
 ```
-covenant/utils/evaluate model test-data loss-function
+covenant/optim/adadelta param-list
+covenant/optim/adadelta/rho param-list r
+covenant/optim/adadelta/rho/epsilon param-list r eps
 ```
 
 **Parameters:**
-- `model`: Model to evaluate
-- `test-data`: Test data for evaluation
-- `loss-function`: Loss function to use
+- `param-list`: Block of parameters to optimize
+- `/rho`: Optional refinement to specify rho parameter (default: 0.95)
+- `r`: Rho value
+- `/epsilon`: Optional refinement to specify epsilon parameter (default: 1e-6)
+- `eps`: Epsilon value
 
 **Returns:**
-Average loss across test data.
+Adadelta optimizer object with step method.
 
-**Example:**
+## Learning Rate Schedulers
+
+### `covenant/lr_scheduler/step_lr`
+Creates a Step learning rate scheduler.
+
+**Syntax:**
 ```
-avg-loss: covenant/utils/evaluate my-model test-set 'mse-loss
+covenant/lr_scheduler/step_lr optimizer step-size gamma
 ```
+
+**Parameters:**
+- `optimizer`: Optimizer to schedule
+- `step-size`: Period of learning rate decay
+- `gamma`: Multiplicative factor of learning rate decay (default: 0.1)
+
+**Returns:**
+Step learning rate scheduler object with step method.
+
+### `covenant/lr_scheduler/exp_lr`
+Creates an Exponential learning rate scheduler.
+
+**Syntax:**
+```
+covenant/lr_scheduler/exp_lr optimizer gamma
+```
+
+**Parameters:**
+- `optimizer`: Optimizer to schedule
+- `gamma`: Multiplicative factor of learning rate decay
+
+**Returns:**
+Exponential learning rate scheduler object with step method.
 
 ## Autograd System
 
-### Gradient Tracking
-Tensors can be created with gradient tracking enabled using the `/requires_grad` refinement:
+The autograd system provides automatic differentiation for tensor operations. It maintains a computational graph and computes gradients using backpropagation.
 
-```
-x: covenant/tensor/requires_grad [1.0 2.0 3.0]
-```
-
-This enables automatic differentiation for backpropagation through the computational graph.
+Key features:
+- Automatic gradient computation for basic operations (add, mul, matmul)
+- Support for advanced operations (pow, exp, log, sin, cos)
+- Computational graph tracking
+- Backward propagation through complex operations
