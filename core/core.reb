@@ -1,9 +1,50 @@
 REBOL [
     Title: "Covenant Core Module"
     Description: "Core tensor operations and data structures for Covenant AI Framework"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
+]
+
+;; Global flatten function to avoid duplication
+flatten-data: func [
+    "Recursively flatten nested blocks"
+    data [block! number!]
+] [
+    if number? data [return reduce [data]]
+    if empty? data [return copy []]
+
+    result: copy []
+    foreach item data [
+        either block? item [
+            append result flatten-data item
+        ] [
+            append result reduce [item]
+        ]
+    ]
+    result
+]
+
+;; Calculate tensor shape
+calculate-shape: func [
+    "Calculate tensor shape from nested data"
+    data [block! number!]
+] [
+    ; Handle scalar case
+    if number? data [return reduce [1]]
+
+    ; Determine if data is nested (multi-dimensional)
+    if empty? data [return reduce [0]]
+
+    ; Check if first element is a block (indicating multi-dimensional data)
+    if block? first data [
+        outer-len: length? data
+        inner-shape: calculate-shape first data
+        return append reduce [outer-len] inner-shape
+    ]
+
+    ; Otherwise it's a 1D tensor
+    reduce [length? data]
 ]
 
 ;; Core tensor implementation
@@ -12,71 +53,85 @@ core: context [
     tensor: func [
         "Create a tensor from data"
         input-data [block! number!] "Input data"
+        /dtype "Specify data type"
+        data-type [word!] "Data type (float32, int32, int64)"
     ] [
-        ;; Flatten nested blocks recursively
-        flatten-data: func [
-            data [block! number!]
-        ] [
-            result: copy []
-            foreach item data [
-                either block? item [
-                    foreach subitem item [
-                        either block? subitem [
-                            foreach subsubitem subitem [
-                                append result reduce [subsubitem]
-                            ]
-                        ] [
-                            append result reduce [subitem]
-                        ]
-                    ]
-                ] [
-                    append result reduce [item]
+        ; Validate input
+        if not any [block? input-data number? input-data] [
+            throw "Input data must be a block or number"
+        ]
+
+        ; Determine data type
+        tensor-dtype: either dtype [data-type] ['float32]
+
+        ; Convert data to appropriate type
+        processed-data: either number? input-data [
+            either tensor-dtype = 'float32 [reduce [to-float input-data]] [
+                either tensor-dtype = 'int32 [reduce [to-integer input-data]] [
+                    reduce [to-integer input-data]  ; Default to int64 for other cases
                 ]
             ]
-            result
+        ] [
+            ; Process block data
+            flat-data: flatten-data input-data
+            either tensor-dtype = 'float32 [
+                ; Convert all elements to float
+                result: copy []
+                foreach val flat-data [
+                    append result to-float val
+                ]
+                result
+            ] [
+                either tensor-dtype = 'int32 [
+                    ; Convert all elements to integer
+                    result: copy []
+                    foreach val flat-data [
+                        append result to-integer val
+                    ]
+                    result
+                ] [
+                    ; Default to int64
+                    result: copy []
+                    foreach val flat-data [
+                        append result to-integer val
+                    ]
+                    result
+                ]
+            ]
         ]
 
         make object! [
-            data: either number? input-data [reduce [input-data]] [either block? input-data [flatten-data input-data] [input-data]]
+            data: processed-data
             shape: calculate-shape input-data
-            dtype: 'float32  ; Default type
+            dtype: tensor-dtype
         ]
     ]
-    
-    ;; Calculate tensor shape
-    calculate-shape: func [
-        data [block! number!]
-    ] [
-        ; Handle scalar case
-        if number? data [return reduce [1]]
 
-        ; Determine if data is nested (multi-dimensional)
-        if empty? data [return reduce [0]]
-
-        ; Check if first element is a block (indicating multi-dimensional data)
-        if block? first data [
-            outer-len: length? data
-            inner-shape: calculate-shape first data
-            return append reduce [outer-len] inner-shape
-        ]
-
-        ; Otherwise it's a 1D tensor
-        reduce [length? data]
-    ]
-    
     ;; Create tensor of zeros
     zeros: func [
         "Create a tensor filled with zeros"
         input-shape [block!] "Shape of the tensor"
+        /dtype "Specify data type"
+        data-type [word!] "Data type (float32, int32, int64)"
     ] [
         size: 1
         foreach dim input-shape [size: size * dim]
+
+        tensor-dtype: either dtype [data-type] ['float32]
+
         tensor-data: make block! size
-        loop size [append tensor-data 0.0]
+        loop size [
+            either tensor-dtype = 'float32 [
+                append tensor-data 0.0
+            ] [
+                append tensor-data 0
+            ]
+        ]
+
         make object! [
             data: tensor-data
             shape: input-shape
-            dtype: 'float32
+            dtype: tensor-dtype
         ]
     ]
 
@@ -84,15 +139,27 @@ core: context [
     ones: func [
         "Create a tensor filled with ones"
         input-shape [block!] "Shape of the tensor"
+        /dtype "Specify data type"
+        data-type [word!] "Data type (float32, int32, int64)"
     ] [
         size: 1
         foreach dim input-shape [size: size * dim]
+
+        tensor-dtype: either dtype [data-type] ['float32]
+
         tensor-data: make block! size
-        loop size [append tensor-data 1.0]
+        loop size [
+            either tensor-dtype = 'float32 [
+                append tensor-data 1.0
+            ] [
+                append tensor-data 1
+            ]
+        ]
+
         make object! [
             data: tensor-data
             shape: input-shape
-            dtype: 'float32
+            dtype: tensor-dtype
         ]
     ]
 
@@ -111,17 +178,106 @@ core: context [
             dtype: 'float32
         ]
     ]
-    
+
+    ;; Create tensor with evenly spaced values (arange)
+    arange: func [
+        "Create a tensor with evenly spaced values"
+        start [number!] "Starting value"
+        end [number!] "Ending value (exclusive)"
+        /step "Step size"
+        step-size [number!] "Step size"
+    ] [
+        step-val: either step [step-size] [1.0]
+
+        if step-val = 0 [throw "Step size cannot be zero"]
+
+        data: copy []
+        current: start
+        while [current < end] [
+            append data current
+            current: current + step-val
+        ]
+
+        make object! [
+            data: data
+            shape: reduce [length? data]
+            dtype: 'float32
+        ]
+    ]
+
+    ;; Create tensor with linearly spaced values (linspace)
+    linspace: func [
+        "Create a tensor with linearly spaced values"
+        start [number!] "Starting value"
+        end [number!] "Ending value"
+        num [integer!] "Number of points"
+    ] [
+        if num <= 0 [throw "Number of points must be positive"]
+
+        if num = 1 [
+            make object! [
+                data: reduce [start]
+                shape: reduce [1]
+                dtype: 'float32
+            ]
+        ] [
+            step: (end - start) / (num - 1)
+            data: copy []
+            repeat i num [
+                append data (start + ((i - 1) * step))
+            ]
+
+            make object! [
+                data: data
+                shape: reduce [length? data]
+                dtype: 'float32
+            ]
+        ]
+    ]
+
     ;; Add two tensors
     add: func [
         "Add two tensors"
         a [object!] "First tensor"
         b [object!] "Second tensor"
     ] [
-        if a/shape <> b/shape [throw "Tensor shapes must match for addition"]
+        ; Broadcasting support - expand dimensions if needed
+        if a/shape <> b/shape [
+            ; Simple broadcasting: if one tensor has shape [1] and the other doesn't, broadcast
+            if (a/shape = reduce [1]) and (length? b/shape > 0) [
+                ; Broadcast a to match b's shape
+                broadcasted-data: copy []
+                value-to-repeat: a/data/1
+                loop length? b/data [append broadcasted-data value-to-repeat]
+
+                a: make object! [
+                    data: broadcasted-data
+                    shape: b/shape
+                    dtype: a/dtype
+                ]
+            ]
+            if (b/shape = reduce [1]) and (length? a/shape > 0) [
+                ; Broadcast b to match a's shape
+                broadcasted-data: copy []
+                value-to-repeat: b/data/1
+                loop length? a/data [append broadcasted-data value-to-repeat]
+
+                b: make object! [
+                    data: broadcasted-data
+                    shape: a/shape
+                    dtype: b/dtype
+                ]
+            ]
+
+            ; Check again after broadcasting
+            if a/shape <> b/shape [throw "Tensor shapes must match for addition (after broadcasting)"]
+        ]
+
         result-data: copy a/data
         repeat i length? result-data [
-            result-data/:i: result-data/:i + b/data/:i
+            if i <= length? b/data [
+                result-data/:i: result-data/:i + b/data/:i
+            ]
         ]
         make object! [
             data: result-data
@@ -136,10 +292,43 @@ core: context [
         a [object!] "First tensor"
         b [object!] "Second tensor"
     ] [
-        if a/shape <> b/shape [throw "Tensor shapes must match for multiplication"]
+        ; Broadcasting support - expand dimensions if needed
+        if a/shape <> b/shape [
+            ; Simple broadcasting: if one tensor has shape [1] and the other doesn't, broadcast
+            if (a/shape = reduce [1]) and (length? b/shape > 0) [
+                ; Broadcast a to match b's shape
+                broadcasted-data: copy []
+                value-to-repeat: a/data/1
+                loop length? b/data [append broadcasted-data value-to-repeat]
+
+                a: make object! [
+                    data: broadcasted-data
+                    shape: b/shape
+                    dtype: a/dtype
+                ]
+            ]
+            if (b/shape = reduce [1]) and (length? a/shape > 0) [
+                ; Broadcast b to match a's shape
+                broadcasted-data: copy []
+                value-to-repeat: b/data/1
+                loop length? a/data [append broadcasted-data value-to-repeat]
+
+                b: make object! [
+                    data: broadcasted-data
+                    shape: a/shape
+                    dtype: b/dtype
+                ]
+            ]
+
+            ; Check again after broadcasting
+            if a/shape <> b/shape [throw "Tensor shapes must match for multiplication (after broadcasting)"]
+        ]
+
         result-data: copy a/data
         repeat i length? result-data [
-            result-data/:i: result-data/:i * b/data/:i
+            if i <= length? b/data [
+                result-data/:i: result-data/:i * b/data/:i
+            ]
         ]
         make object! [
             data: result-data
@@ -147,7 +336,7 @@ core: context [
             dtype: a/dtype
         ]
     ]
-    
+
     ;; Matrix multiplication (simplified for 2D)
     matmul: func [
         "Matrix multiplication"
@@ -187,7 +376,7 @@ core: context [
 
         result
     ]
-    
+
     ;; Reshape tensor
     reshape: func [
         "Reshape a tensor"
@@ -215,16 +404,28 @@ core: context [
     sum: func [
         "Sum tensor along specified axis"
         t [object!] "Input tensor"
-        axis [integer!] "Axis to sum along (0-indexed)"
+        /axis "Axis to sum along (0-indexed)"
+        axis-val [integer!] "Axis to sum along (0-indexed)"
     ] [
-        if axis >= length? t/shape [throw "Axis out of range"]
+        ; If no axis specified, sum all elements
+        if not axis [
+            total: 0.0
+            foreach val t/data [total: total + val]
+            return make object! [
+                data: reduce [total]
+                shape: reduce [1]
+                dtype: t/dtype
+            ]
+        ]
+
+        if axis-val >= length? t/shape [throw "Axis out of range"]
 
         ; For simplicity, implementing for 2D tensors
         if (length? t/shape) = 2 [
             rows: t/shape/1
             cols: t/shape/2
 
-            if axis = 0 [  ; Sum along rows (result is 1D with column sums)
+            if axis-val = 0 [  ; Sum along rows (result is 1D with column sums)
                 result-data: make block! cols
                 repeat j cols [
                     sum-val: 0.0
@@ -241,7 +442,7 @@ core: context [
                 ]
             ]
 
-            if axis = 1 [  ; Sum along columns (result is 1D with row sums)
+            if axis-val = 1 [  ; Sum along columns (result is 1D with row sums)
                 result-data: make block! rows
                 repeat i rows [
                     sum-val: 0.0
@@ -262,6 +463,294 @@ core: context [
         throw "Sum operation not implemented for this tensor shape"
     ]
 
+    ;; Maximum value along axis
+    max: func [
+        "Maximum value along specified axis"
+        t [object!] "Input tensor"
+        /axis "Axis to find max along (0-indexed)"
+        axis-val [integer!] "Axis to find max along (0-indexed)"
+    ] [
+        ; If no axis specified, find max of all elements
+        if not axis [
+            max-val: first t/data
+            foreach val next t/data [
+                if val > max-val [max-val: val]
+            ]
+            return make object! [
+                data: reduce [max-val]
+                shape: reduce [1]
+                dtype: t/dtype
+            ]
+        ]
+
+        if axis-val >= length? t/shape [throw "Axis out of range"]
+
+        ; For simplicity, implementing for 2D tensors
+        if (length? t/shape) = 2 [
+            rows: t/shape/1
+            cols: t/shape/2
+
+            if axis-val = 0 [  ; Max along rows (result is 1D with column maxes)
+                result-data: make block! cols
+                repeat j cols [
+                    max-val: t/data/j
+                    repeat i rows [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx > max-val [max-val: t/data/:idx]
+                    ]
+                    append result-data max-val
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [cols]
+                    dtype: t/dtype
+                ]
+            ]
+
+            if axis-val = 1 [  ; Max along columns (result is 1D with row maxes)
+                result-data: make block! rows
+                repeat i rows [
+                    max-val: t/data/((i - 1) * cols + 1)
+                    repeat j cols [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx > max-val [max-val: t/data/:idx]
+                    ]
+                    append result-data max-val
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [rows]
+                    dtype: t/dtype
+                ]
+            ]
+        ]
+
+        throw "Max operation not implemented for this tensor shape"
+    ]
+
+    ;; Minimum value along axis
+    min: func [
+        "Minimum value along specified axis"
+        t [object!] "Input tensor"
+        /axis "Axis to find min along (0-indexed)"
+        axis-val [integer!] "Axis to find min along (0-indexed)"
+    ] [
+        ; If no axis specified, find min of all elements
+        if not axis [
+            min-val: first t/data
+            foreach val next t/data [
+                if val < min-val [min-val: val]
+            ]
+            return make object! [
+                data: reduce [min-val]
+                shape: reduce [1]
+                dtype: t/dtype
+            ]
+        ]
+
+        if axis-val >= length? t/shape [throw "Axis out of range"]
+
+        ; For simplicity, implementing for 2D tensors
+        if (length? t/shape) = 2 [
+            rows: t/shape/1
+            cols: t/shape/2
+
+            if axis-val = 0 [  ; Min along rows (result is 1D with column mins)
+                result-data: make block! cols
+                repeat j cols [
+                    min-val: t/data/j
+                    repeat i rows [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx < min-val [min-val: t/data/:idx]
+                    ]
+                    append result-data min-val
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [cols]
+                    dtype: t/dtype
+                ]
+            ]
+
+            if axis-val = 1 [  ; Min along columns (result is 1D with row mins)
+                result-data: make block! rows
+                repeat i rows [
+                    min-val: t/data/((i - 1) * cols + 1)
+                    repeat j cols [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx < min-val [min-val: t/data/:idx]
+                    ]
+                    append result-data min-val
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [rows]
+                    dtype: t/dtype
+                ]
+            ]
+        ]
+
+        throw "Min operation not implemented for this tensor shape"
+    ]
+
+    ;; Argmax - index of maximum value
+    argmax: func [
+        "Index of maximum value along specified axis"
+        t [object!] "Input tensor"
+        /axis "Axis to find argmax along (0-indexed)"
+        axis-val [integer!] "Axis to find argmax along (0-indexed)"
+    ] [
+        ; If no axis specified, find argmax of all elements
+        if not axis [
+            max-val: first t/data
+            max-idx: 1
+            idx: 1
+            foreach val t/data [
+                if val > max-val [
+                    max-val: val
+                    max-idx: idx
+                ]
+                idx: idx + 1
+            ]
+            return make object! [
+                data: reduce [max-idx - 1]  ; Return 0-indexed position
+                shape: reduce [1]
+                dtype: 'int32
+            ]
+        ]
+
+        if axis-val >= length? t/shape [throw "Axis out of range"]
+
+        ; For simplicity, implementing for 2D tensors
+        if (length? t/shape) = 2 [
+            rows: t/shape/1
+            cols: t/shape/2
+
+            if axis-val = 0 [  ; Argmax along rows (result is 1D with column argmaxes)
+                result-data: make block! cols
+                repeat j cols [
+                    max-val: t/data/j
+                    max-idx: 1
+                    repeat i rows [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx > max-val [
+                            max-val: t/data/:idx
+                            max-idx: i
+                        ]
+                    ]
+                    append result-data (max-idx - 1)  ; 0-indexed
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [cols]
+                    dtype: 'int32
+                ]
+            ]
+
+            if axis-val = 1 [  ; Argmax along columns (result is 1D with row argmaxes)
+                result-data: make block! rows
+                repeat i rows [
+                    max-val: t/data/((i - 1) * cols + 1)
+                    max-idx: 1
+                    repeat j cols [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx > max-val [
+                            max-val: t/data/:idx
+                            max-idx: j
+                        ]
+                    ]
+                    append result-data (max-idx - 1)  ; 0-indexed
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [rows]
+                    dtype: 'int32
+                ]
+            ]
+        ]
+
+        throw "Argmax operation not implemented for this tensor shape"
+    ]
+
+    ;; Argmin - index of minimum value
+    argmin: func [
+        "Index of minimum value along specified axis"
+        t [object!] "Input tensor"
+        /axis "Axis to find argmin along (0-indexed)"
+        axis-val [integer!] "Axis to find argmin along (0-indexed)"
+    ] [
+        ; If no axis specified, find argmin of all elements
+        if not axis [
+            min-val: first t/data
+            min-idx: 1
+            idx: 1
+            foreach val t/data [
+                if val < min-val [
+                    min-val: val
+                    min-idx: idx
+                ]
+                idx: idx + 1
+            ]
+            return make object! [
+                data: reduce [min-idx - 1]  ; Return 0-indexed position
+                shape: reduce [1]
+                dtype: 'int32
+            ]
+        ]
+
+        if axis-val >= length? t/shape [throw "Axis out of range"]
+
+        ; For simplicity, implementing for 2D tensors
+        if (length? t/shape) = 2 [
+            rows: t/shape/1
+            cols: t/shape/2
+
+            if axis-val = 0 [  ; Argmin along rows (result is 1D with column argmins)
+                result-data: make block! cols
+                repeat j cols [
+                    min-val: t/data/j
+                    min-idx: 1
+                    repeat i rows [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx < min-val [
+                            min-val: t/data/:idx
+                            min-idx: i
+                        ]
+                    ]
+                    append result-data (min-idx - 1)  ; 0-indexed
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [cols]
+                    dtype: 'int32
+                ]
+            ]
+
+            if axis-val = 1 [  ; Argmin along columns (result is 1D with row argmins)
+                result-data: make block! rows
+                repeat i rows [
+                    min-val: t/data/((i - 1) * cols + 1)
+                    min-idx: 1
+                    repeat j cols [
+                        idx: ((i - 1) * cols) + j
+                        if t/data/:idx < min-val [
+                            min-val: t/data/:idx
+                            min-idx: j
+                        ]
+                    ]
+                    append result-data (min-idx - 1)  ; 0-indexed
+                ]
+                return make object! [
+                    data: result-data
+                    shape: reduce [rows]
+                    dtype: 'int32
+                ]
+            ]
+        ]
+
+        throw "Argmin operation not implemented for this tensor shape"
+    ]
+
     ;; Print tensor
     print-tensor: func [
         "Print tensor contents"
@@ -269,6 +758,7 @@ core: context [
     ] [
         print ["Tensor shape:" mold t/shape]
         print ["Tensor data:" mold t/data]
+        print ["Tensor dtype:" t/dtype]
     ]
 
     ;; Enhanced tensor function with gradient support
@@ -277,32 +767,6 @@ core: context [
         input-data [block! number!] "Input data"
         /requires-grad "Enable gradient tracking"
     ] [
-        ;; Flatten nested blocks recursively
-        flatten-data: func [
-            data [block! number!]
-        ] [
-            if number? data [return reduce [data]]
-            if empty? data [return copy []]
-
-            result: copy []
-            foreach item data [
-                either block? item [
-                    foreach subitem item [
-                        either block? subitem [
-                            foreach subsubitem subitem [
-                                append result reduce [subsubitem]
-                            ]
-                        ] [
-                            append result reduce [subitem]
-                        ]
-                    ]
-                ] [
-                    append result reduce [item]
-                ]
-            ]
-            result
-        ]
-
         base-object: make object! [
             data: either number? input-data [reduce [input-data]] [either block? input-data [flatten-data input-data] [input-data]]
             shape: calculate-shape input-data
@@ -333,10 +797,12 @@ core: context [
         /axis "Axis along which to concatenate (default: 0)"
         axis-val [integer!] "Axis value"
     ] [
+        if empty? tensors [throw "Cannot concatenate empty list of tensors"]
+
         axis-to-use: either axis [axis-val] [0]
 
         ; All tensors must have the same shape except in the concatenation dimension
-        base-shape: tensors/1/shape
+        base-shape: first tensors/1/shape
         foreach tensor tensors [
             repeat idx length? tensor/shape [
                 if idx <> (axis-to-use + 1) [  ; REBOL is 1-indexed
@@ -348,11 +814,8 @@ core: context [
         ]
 
         ; Calculate result shape - create a new block
-        base-shape-block: tensors/1/shape
-        result-shape: make block! length? base-shape-block
-        foreach dim base-shape-block [
-            append result-shape dim
-        ]
+        result-shape: make block! length? base-shape
+        foreach dim base-shape [append result-shape dim]
         total-size: 0
         foreach tensor tensors [
             total-size: total-size + tensor/shape/(axis-to-use + 1)
@@ -368,7 +831,7 @@ core: context [
         make object! [
             data: result-data
             shape: result-shape
-            dtype: tensors/1/dtype
+            dtype: first tensors/1/dtype
         ]
     ]
 
@@ -379,6 +842,8 @@ core: context [
         /dim "Dimension along which to stack (default: 0)"
         dim-val [integer!] "Dimension value"
     ] [
+        if empty? tensors [throw "Cannot stack empty list of tensors"]
+
         dim-to-use: either dim [dim-val] [0]
 
         ; All tensors must have the same shape
@@ -407,7 +872,7 @@ core: context [
         make object! [
             data: result-data
             shape: result-shape
-            dtype: tensors/1/dtype
+            dtype: first tensors/1/dtype
         ]
     ]
 
@@ -496,6 +961,116 @@ core: context [
         make object! [
             data: copy t/data
             shape: copy t/shape
+            dtype: t/dtype
+        ]
+    ]
+
+    ;; Transpose 2D tensor
+    transpose: func [
+        "Transpose a 2D tensor"
+        t [object!] "Input tensor"
+    ] [
+        if length? t/shape <> 2 [throw "Transpose only supports 2D tensors"]
+
+        rows: t/shape/1
+        cols: t/shape/2
+
+        result-data: make block! (rows * cols)
+        loop (rows * cols) [append result-data 0.0]
+
+        repeat i rows [
+            repeat j cols [
+                src-idx: ((i - 1) * cols) + j
+                dst-idx: ((j - 1) * rows) + i
+                result-data/:dst-idx: t/data/:src-idx
+            ]
+        ]
+
+        make object! [
+            data: result-data
+            shape: reduce [cols rows]  ; Swap dimensions
+            dtype: t/dtype
+        ]
+    ]
+
+    ;; Power operation
+    pow: func [
+        "Raise tensor to a power"
+        t [object!] "Input tensor"
+        exponent [number!] "Power to raise to"
+    ] [
+        result-data: copy t/data
+        repeat i length? result-data [
+            result-data/:i: power result-data/:i exponent
+        ]
+
+        make object! [
+            data: result-data
+            shape: t/shape
+            dtype: t/dtype
+        ]
+    ]
+
+    ;; Square root
+    sqrt: func [
+        "Square root of tensor"
+        t [object!] "Input tensor"
+    ] [
+        result-data: copy t/data
+        repeat i length? result-data [
+            result-data/:i: square-root result-data/:i
+        ]
+
+        make object! [
+            data: result-data
+            shape: t/shape
+            dtype: t/dtype
+        ]
+    ]
+
+    ;; Helper function for square root
+    square-root: func [
+        "Calculate square root using Newton's method"
+        x [number!]
+    ] [
+        if x <= 0 [return 0.0]
+        guess: x / 2.0
+        repeat i 10 [  ; 10 iterations should be enough
+            guess: (guess + x / guess) / 2.0
+        ]
+        guess
+    ]
+
+    ;; Exponential
+    exp: func [
+        "Exponential of tensor"
+        t [object!] "Input tensor"
+    ] [
+        result-data: copy t/data
+        repeat i length? result-data [
+            result-data/:i: exp result-data/:i
+        ]
+
+        make object! [
+            data: result-data
+            shape: t/shape
+            dtype: t/dtype
+        ]
+    ]
+
+    ;; Natural logarithm
+    log: func [
+        "Natural logarithm of tensor"
+        t [object!] "Input tensor"
+    ] [
+        result-data: copy t/data
+        repeat i length? result-data [
+            result-data/:i: log-e result-data/:i
+        ]
+
+        make object! [
+            data: result-data
+            shape: t/shape
             dtype: t/dtype
         ]
     ]
