@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Data Loading Utilities"
     Description: "Data loading and preprocessing utilities for Covenant AI Framework"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
