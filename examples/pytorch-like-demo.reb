@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant PyTorch-like Example"
     Description: "Comprehensive example demonstrating Covenant AI Framework PyTorch-like features"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
