@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Framework Test"
     Description: "Test script to verify Covenant AI Framework functionality"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
