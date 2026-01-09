@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Operation Gradients"
     Description: "Gradient computation for various operations in Covenant AI Framework"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
