@@ -1,7 +1,7 @@
 REBOL [
     Title: "Test Covenant Load"
     Description: "Simple test to load covenant"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
