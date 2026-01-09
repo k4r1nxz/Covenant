@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Example - Simple Neural Network"
     Description: "Example demonstrating Covenant AI Framework capabilities"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
