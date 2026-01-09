@@ -1,17 +1,41 @@
-# Covenant AI Framework - Code Examples and Best Practices
+# Covenant AI Framework - Examples and Tutorials
 
 ## Table of Contents
-1. [Basic Examples](#basic-examples)
-2. [Intermediate Examples](#intermediate-examples)
-3. [Advanced Examples](#advanced-examples)
-4. [Best Practices](#best-practices)
-5. [Performance Tips](#performance-tips)
+1. [Basic Tensor Operations](#basic-tensor-operations)
+2. [Advanced Tensor Operations](#advanced-tensor-operations)
+3. [Neural Network Examples](#neural-network-examples)
+4. [Optimization Examples](#optimization-examples)
+5. [Autograd Examples](#autograd-examples)
 
-## Basic Examples
+## Basic Tensor Operations
 
-### Example 1: Simple Tensor Operations
+### Creating Tensors
 
+```rebol
+;; Load the framework
+do %covenant.reb
+
+;; Create a simple tensor
+x: covenant/tensor [1.0 2.0 3.0]
+print ["Simple tensor:" mold x/data]
+
+;; Create a 2D tensor
+matrix: covenant/tensor [[1.0 2.0] [3.0 4.0]]
+print ["2D tensor shape:" mold matrix/shape]
+print ["2D tensor data:" mold matrix/data]
+
+;; Create tensor with specific data type
+int-tensor: covenant/tensor/dtype [1 2 3] 'int32
+print ["Integer tensor:" mold int-tensor/data "dtype:" int-tensor/dtype]
+
+;; Create tensor with gradient tracking
+x-grad: covenant/tensor/requires_grad [2.0 3.0 4.0]
+print ["Tensor with grad tracking:" mold x-grad/data]
 ```
+
+### Basic Operations
+
+```rebol
 ;; Load the framework
 do %covenant.reb
 
@@ -19,567 +43,307 @@ do %covenant.reb
 a: covenant/tensor [1.0 2.0 3.0]
 b: covenant/tensor [4.0 5.0 6.0]
 
-;; Perform operations
+;; Addition
 sum: covenant/add a b
+print ["Addition result:" mold sum/data]
+
+;; Multiplication
 product: covenant/mul a b
+print ["Multiplication result:" mold product/data]
 
-print ["a:" mold a/data]
-print ["b:" mold b/data]
-print ["a + b:" mold sum/data]
-print ["a * b:" mold product/data]
+;; Matrix multiplication
+mat-a: covenant/tensor [[1.0 2.0] [3.0 4.0]]
+mat-b: covenant/tensor [[5.0 6.0] [7.0 8.0]]
+mat-product: covenant/matmul mat-a mat-b
+print ["Matrix multiplication result:" mold mat-product/data]
+
+;; Reshape
+reshaped: covenant/reshape a [1 3]
+print ["Reshaped tensor:" mold reshaped/data "shape:" mold reshaped/shape]
 ```
 
-### Example 2: Basic Neural Network Layer
+## Advanced Tensor Operations
 
-```
+### New Tensor Functions
+
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Create a linear layer: 3 inputs -> 2 outputs
-linear-layer: covenant/nn/linear 3 2
+;; Create tensor with arange
+range-tensor: covenant/arange 0 10
+print ["Arange tensor:" mold range-tensor/data]
 
-;; Create input tensor
-input: covenant/tensor [1.0 2.0 3.0]
+;; Create tensor with linspace
+linspace-tensor: covenant/linspace 0 1 5
+print ["Linspace tensor:" mold linspace-tensor/data]
+
+;; Power operation
+base: covenant/tensor [1.0 2.0 3.0]
+powered: covenant/pow base 2
+print ["Powered tensor:" mold powered/data]
+
+;; Square root
+squared: covenant/tensor [4.0 9.0 16.0]
+sqrt-result: covenant/sqrt squared
+print ["Square root result:" mold sqrt-result/data]
+
+;; Exponential
+exp-input: covenant/tensor [0.0 1.0 2.0]
+exp-result: covenant/exp exp-input
+print ["Exponential result:" mold exp-result/data]
+
+;; Natural logarithm
+log-input: covenant/tensor [1.0 2.718 7.389]
+log-result: covenant/log log-input
+print ["Logarithm result:" mold log-result/data]
+
+;; Statistical operations
+data: covenant/tensor [[1.0 2.0 3.0] [4.0 5.0 6.0]]
+
+;; Max along axis 0 (columns)
+max-cols: covenant/max/axis data 0
+print ["Max along columns:" mold max-cols/data]
+
+;; Max along axis 1 (rows)
+max-rows: covenant/max/axis data 1
+print ["Max along rows:" mold max-rows/data]
+
+;; Argmax
+argmax-result: covenant/argmax/axis data 1
+print ["Argmax along rows:" mold argmax-result/data]
+
+;; Transpose
+transposed: covenant/transpose data
+print ["Transposed shape:" mold transposed/shape]
+print ["Transposed data:" mold transposed/data]
+```
+
+## Neural Network Examples
+
+### Simple Neural Network
+
+```rebol
+;; Load the framework
+do %covenant.reb
+
+;; Create a simple neural network with multiple layers
+input-layer: covenant/nn/linear 3 5
+hidden-layer: covenant/nn/linear 5 2
+activation: covenant/nn/relu
+
+;; Create input data
+input-data: covenant/tensor/requires_grad [1.0 2.0 3.0]
 
 ;; Forward pass
-output: linear-layer/forward input
+hidden-output: input-layer/forward input-data
+activated: activation hidden-output
+final-output: hidden-layer/forward activated
 
-print ["Input:" mold input/data]
-print ["Output:" mold output/data]
-print ["Weights shape:" mold linear-layer/weights/shape]
-print ["Bias shape:" mold linear-layer/bias/shape]
+print ["Network output:" mold final-output/data]
+print ["Output shape:" mold final-output/shape]
 ```
 
-### Example 3: Activation Functions
+### Sequential Model
 
-```
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Create input tensor
-input: covenant/tensor [-2.0 -1.0 0.0 1.0 2.0]
+;; Create layers
+layer1: covenant/nn/linear 4 8
+relu1: covenant/nn/relu
+layer2: covenant/nn/linear 8 4
+relu2: covenant/nn/relu
+output-layer: covenant/nn/linear 4 1
 
-;; Apply different activation functions
-relu-out: covenant/nn/relu input
-sigmoid-out: covenant/nn/sigmoid input
-tanh-out: covenant/nn/tanh input
+;; Create sequential model
+model: covenant/nn/sequential reduce [layer1 relu1 layer2 relu2 output-layer]
 
-print ["Input:" mold input/data]
-print ["ReLU:" mold relu-out/data]
-print ["Sigmoid:" mold sigmoid-out/data]
-print ["Tanh:" mold tanh-out/data]
-```
-
-## Intermediate Examples
-
-### Example 4: Multi-Layer Perceptron (MLP)
-
-```
-;; Load the framework
-do %covenant.reb
-
-;; Define a multi-layer perceptron
-mlp: make object! [
-    ;; Define layers
-    hidden1: covenant/nn/linear 4 8
-    hidden2: covenant/nn/linear 8 4
-    output: covenant/nn/linear 4 1
-    
-    ;; Forward pass function
-    forward: func [input] [
-        ;; First hidden layer
-        h1: hidden1/forward input
-        a1: covenant/nn/relu h1
-        
-        ;; Second hidden layer
-        h2: hidden2/forward a1
-        a2: covenant/nn/relu h2
-        
-        ;; Output layer
-        out: output/forward a2
-        covenant/nn/sigmoid out
-    ]
-]
-
-;; Create sample input
-input: covenant/tensor [0.5 1.0 1.5 2.0]
+;; Create input
+input: covenant/tensor/requires_grad [1.0 2.0 3.0 4.0]
 
 ;; Forward pass
-output: mlp/forward input
-
-print ["MLP Input:" mold input/data]
-print ["MLP Output:" mold output/data]
+output: model/forward input
+print ["Sequential model output:" mold output/data]
 ```
 
-### Example 5: Training Loop Template
+### Convolutional Layer
 
-```
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Define a simple model
-model: make object! [
-    layer1: covenant/nn/linear 2 10
-    layer2: covenant/nn/linear 10 1
-    
-    forward: func [input] [
-        hidden: layer1/forward input
-        activated: covenant/nn/relu hidden
-        output: layer2/forward activated
-        covenant/nn/sigmoid output
-    ]
-]
+;; Create a 1D convolutional layer
+conv-layer: covenant/nn/conv1d 1 2 3  ; 1 input channel, 2 output channels, kernel size 3
 
-;; Create sample training data
-train-data: [
-    [covenant/tensor [0.0 0.0] covenant/tensor [0.0]]
-    [covenant/tensor [0.0 1.0] covenant/tensor [1.0]]
-    [covenant/tensor [1.0 0.0] covenant/tensor [1.0]]
-    [covenant/tensor [1.0 1.0] covenant/tensor [0.0]]
-]
+;; Create input data (sequence of 5 values, 1 channel)
+input-data: covenant/tensor [[1.0] [2.0] [3.0] [4.0] [5.0]]
 
-;; Training parameters
-learning-rate: 0.01
-epochs: 100
-
-;; Create optimizer (using placeholder parameters)
-params: reduce [1.0 2.0 3.0 4.0]  ; In real scenario, collect actual model parameters
-optimizer: covenant/optim/sgd params learning-rate
-
-;; Training loop
-repeat epoch epochs [
-    total-loss: 0.0
-    
-    foreach data-point train-data [
-        input: first data-point
-        target: second data-point
-        
-        ;; Forward pass
-        prediction: model/forward input
-        
-        ;; Compute loss
-        loss: covenant/nn/mse-loss prediction target
-        total-loss: total-loss + loss
-    ]
-    
-    avg-loss: total-loss / length? train-data
-    
-    ;; Print progress every 10 epochs
-    if (epoch // 10) = 0 [
-        print ["Epoch:" epoch "Loss:" avg-loss]
-    ]
-]
-
-print "Training completed!"
+;; Forward pass
+output: conv-layer/forward input-data
+print ["Conv1D output shape:" mold output/shape]
+print ["Conv1D output data:" mold output/data]
 ```
 
-### Example 6: Using Different Optimizers
+### Dropout and Batch Normalization
 
-```
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Create parameters to optimize
-params: reduce [0.5 -0.3 1.2 0.8 -0.1]
+;; Create batch normalization layer
+bn-layer: covenant/nn/batchnorm1d 3  ; 3 features
+
+;; Create input
+input-data: covenant/tensor/requires_grad [[1.0 2.0 3.0] [4.0 5.0 6.0]]
+
+;; Forward pass
+bn-output: bn-layer/forward input-data
+print ["Batch norm output:" mold bn-output/data]
+
+;; Create dropout layer
+dropout-layer: covenant/nn/dropout 0.5
+
+;; Forward pass (training mode)
+dropout-output: dropout-layer/forward input-data true
+print ["Dropout output:" mold dropout-output/data]
+```
+
+## Optimization Examples
+
+### Using Different Optimizers
+
+```rebol
+;; Load the framework
+do %covenant.reb
+
+;; Create some parameters to optimize
+param1: covenant/tensor/requires_grad [0.5 -0.3 1.2]
+param2: covenant/tensor/requires_grad [-0.1 0.8 0.4]
+
+;; Create parameter list
+params: reduce [param1 param2]
 
 ;; Create different optimizers
-sgd-optimizer: covenant/optim/sgd params 0.01
+sgd-optimizer: covenant/optim/sgd/momentum params 0.01 0.9
 adam-optimizer: covenant/optim/adam params 0.001
+rmsprop-optimizer: covenant/optim/rmsprop params 0.01
 
-print ["Original parameters:" mold params]
+;; Create some dummy gradients
+gradients: reduce [
+    covenant/tensor [0.1 -0.2 0.3]/data
+    covenant/tensor [-0.05 0.15 0.25]/data
+]
 
-;; Simulate gradient values
-gradients: reduce [0.1 -0.2 0.3 -0.1 0.05]
-
-;; Apply one step of SGD
+;; Update parameters with SGD
+print "Before SGD update:"
+print ["Param1:" mold param1/data]
 sgd-optimizer/step gradients
-print ["After SGD step:" mold sgd-optimizer/params]
+print "After SGD update:"
+print ["Param1:" mold param1/data]
 
-;; Reset parameters and apply Adam
-adam-optimizer/params: copy params
+;; Reset parameters and try Adam
+param1/data: [0.5 -0.3 1.2]
+param2/data: [-0.1 0.8 0.4]
+
+print "^nBefore Adam update:"
+print ["Param1:" mold param1/data]
 adam-optimizer/step gradients
-print ["After Adam step:" mold adam-optimizer/params]
+print "After Adam update:"
+print ["Param1:" mold param1/data]
 ```
 
-## Advanced Examples
+### Learning Rate Schedulers
 
-### Example 7: Convolutional Neural Network (Conceptual)
-
-```
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Define a simple CNN-like structure
-cnn: make object! [
-    conv1: covenant/nn/conv1d 1 16 3  ; 1 input channel, 16 output, kernel size 3
-    pool1: covenant/nn/maxpool1d 2 2    ; Pool size 2, stride 2
-    conv2: covenant/nn/conv1d 16 32 3  ; 16 input, 32 output, kernel size 3
-    pool2: covenant/nn/maxpool1d 2 2    ; Pool size 2, stride 2
-    flatten-layer: func [input] [covenant/flatten input]
-    fc1: covenant/nn/linear 32 64       ; Fully connected
-    output: covenant/nn/linear 64 10    ; 10-class output
-    
-    forward: func [input] [
-        ;; Convolutional layers
-        c1: conv1/forward input
-        p1: pool1/forward c1
-        c2: conv2/forward p1
-        p2: pool2/forward c2
-        
-        ;; Flatten and fully connected
-        flat: flatten-layer p2
-        f1: fc1/forward flat
-        activated: covenant/nn/relu f1
-        output/forward activated
+;; Create parameters and optimizer
+params: reduce [covenant/tensor/requires_grad [0.5 -0.3]]
+optimizer: covenant/optim/sgd params 0.01
+
+;; Create learning rate scheduler
+scheduler: covenant/lr_scheduler/step_lr optimizer 10 0.5  ; Reduce LR by half every 10 epochs
+
+print ["Initial LR:" optimizer/lr]
+
+;; Simulate training for several epochs
+repeat epoch 25 [
+    if (epoch // 10) = 1 [  ; Apply scheduler at epoch 1, 11, 21, etc.
+        scheduler/step epoch
+        print ["Epoch" epoch "LR changed to:" optimizer/lr]
     ]
 ]
-
-;; Note: Actual implementation would depend on how conv1d and maxpool1d are implemented
-print "CNN structure defined"
 ```
 
-### Example 8: Model Saving and Loading
+## Autograd Examples
 
-```
+### Automatic Differentiation
+
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Create a model
-model: make object! [
-    layer1: covenant/nn/linear 5 3
-    layer2: covenant/nn/linear 3 1
-    
-    ;; Serialize model parameters
-    serialize: func [] [
-        make object! [
-            layer1-weights: layer1/weights/data
-            layer1-bias: layer1/bias/data
-            layer2-weights: layer2/weights/data
-            layer2-bias: layer2/bias/data
-            layer1-shapes: reduce [layer1/weights/shape layer1/bias/shape]
-            layer2-shapes: reduce [layer2/weights/shape layer2/bias/shape]
-        ]
-    ]
-    
-    ;; Deserialize model parameters
-    deserialize: func [data] [
-        ;; In a real implementation, reconstruct layers from saved data
-        print "Model deserialized"
-    ]
-]
+;; Create variables that require gradients
+x: covenant/tensor/requires_grad [2.0]
+y: covenant/tensor/requires_grad [3.0]
 
-;; Save the model
-serialized-model: model/serialize
-covenant/utils/save-model serialized-model %advanced-model.dat
+;; Perform operations
+z: covenant/add x y
+w: covenant/mul z x
 
-;; Load the model
-loaded-data: covenant/utils/load-model %advanced-model.dat
-print ["Model loaded with layer1 weights shape:" mold loaded-data/layer1-shapes/1]
+print ["z = x + y =" mold z/data]
+print ["w = z * x =" mold w/data]
 
-;; Clean up
-delete %advanced-model.dat
+;; Perform more complex operations
+squared: covenant/pow w 2
+result: covenant/sum squared
 
-print "Model saving/loading example completed"
+print ["result = sum((x + y) * x)^2 =" mold result/data]
+
+;; Compute gradients using backward pass
+; Note: In the current implementation, we need to manually set up the backward pass
+; This would be more automated in a full implementation
 ```
 
-### Example 9: Custom Loss Function
+### Training Loop Example
 
-```
+```rebol
 ;; Load the framework
 do %covenant.reb
 
-;; Define a custom loss function (Mean Absolute Error)
-mae-loss: func [
-    "Mean Absolute Error loss function"
-    predictions [object!]
-    targets [object!]
-] [
-    if predictions/shape <> targets/shape [
-        throw "Prediction and target shapes must match"
-    ]
-    
-    ;; Calculate absolute differences
-    diff: covenant/add predictions (covenant/mul targets -1)
-    abs-diff-data: copy diff/data
-    repeat i length? abs-diff-data [
-        abs-diff-data/:i: abs(abs-diff-data/:i)
-    ]
-    
-    ;; Create tensor from absolute differences
-    abs-diff: make object! [
-        data: abs-diff-data
-        shape: diff/shape
-        dtype: diff/dtype
-    ]
-    
-    ;; Calculate mean
-    sum-abs: covenant/sum abs-diff 0  ; Sum all elements
-    mae: sum-abs/data/1 / length? abs-diff-data
-    mae
-]
+;; Create a simple model: y = w * x + b
+w: covenant/tensor/requires_grad [0.5]
+b: covenant/tensor/requires_grad [0.1]
 
-;; Test the custom loss function
-pred: covenant/tensor [1.0 2.0 3.0]
-target: covenant/tensor [1.1 1.9 3.2]
-loss: mae-loss pred target
+;; Create optimizer
+params: reduce [w b]
+optimizer: covenant/optim/sgd/momentum params 0.01 0.9
 
-print ["Custom MAE Loss:" loss]
+;; Create some training data
+x-train: covenant/tensor [1.0 2.0 3.0 4.0]
+y-train: covenant/tensor [2.1 4.1 6.1 8.1]  ; y = 2*x + 0.1 (approximately)
 
-;; Compare with built-in MSE
-mse: covenant/nn/mse-loss pred target
-print ["Built-in MSE Loss:" mse]
-```
-
-### Example 10: Data Pipeline
-
-```
-;; Load the framework
-do %covenant.reb
-
-;; Create sample dataset
-sample-data: [
-    [[0.1 0.2 0.3] [0]]
-    [[0.4 0.5 0.6] [1]]
-    [[0.7 0.8 0.9] [1]]
-    [[0.2 0.3 0.4] [0]]
-    [[0.5 0.6 0.7] [1]]
-]
-
-;; Write to file
-write %pipeline-data.txt mold sample-data
-
-;; Load and process data
-raw-data: covenant/utils/load-data %pipeline-data.txt
-
-;; Extract inputs and targets
-inputs: make block! length? raw-data
-targets: make block! length? raw-data
-
-foreach item raw-data [
-    append inputs covenant/tensor first item
-    append targets covenant/tensor second item
-]
-
-print ["Loaded" length? inputs "samples"]
-
-;; Normalize inputs
-normalized-inputs: make block! length? inputs
-mean-tensor: covenant/mean covenant/stack inputs 0
-; Note: This is a simplified normalization - in practice, you'd compute mean/std per feature
-
-;; Clean up
-delete %pipeline-data.txt
-
-print "Data pipeline example completed"
-```
-
-## Best Practices
-
-### 1. Proper Weight Initialization
-
-```
-;; Good practice: Initialize weights with small random values
-initialize-weights: func [input-size output-size] [
-    ;; Xavier/Glorot initialization
-    limit: sqrt (6.0 / (input-size + output-size))
-    covenant/rand reduce [output-size input-size] * (2 * limit) - limit
-]
-
-;; Example usage
-layer: make object! [
-    weights: initialize-weights 10 5
-    bias: covenant/zeros [5]
-]
-```
-
-### 2. Input Normalization
-
-```
-;; Normalize input data to have mean 0 and std 1
-normalize-input: func [tensor] [
-    mean-val: covenant/mean tensor
-    centered: covenant/add tensor (covenant/mul mean-val -1)
-    
-    ;; Calculate standard deviation
-    squared-diff: covenant/mul centered centered
-    var: covenant/mean squared-diff
-    std: sqrt covenant/item var
-    
-    ; Avoid division by zero
-    if std < 1e-8 [std: 1e-8]
-    
-    normalized: covenant/mul centered (1.0 / std)
-    normalized
-]
-```
-
-### 3. Gradient Clipping
-
-```
-;; Clip gradients to prevent exploding gradients
-clip-gradients: func [gradients max-norm] [
-    ;; Calculate gradient norm
-    squared: covenant/mul gradients gradients
-    sum-squared: covenant/sum squared 0
-    norm: sqrt covenant/item sum-squared
-    
-    ;; Clip if norm exceeds threshold
-    if norm > max-norm [
-        scale-factor: max-norm / norm
-        gradients: covenant/mul gradients scale-factor
-    ]
-    gradients
-]
-```
-
-### 4. Model Validation
-
-```
-;; Validate model on separate dataset
-validate-model: func [model validation-data] [
-    total-loss: 0.0
-    count: 0
-    
-    foreach item validation-data [
-        input: first item
-        target: second item
-        prediction: model/forward input
-        loss: covenant/nn/mse-loss prediction target
-        total-loss: total-loss + loss
-        count: count + 1
-    ]
-    
-    total-loss / count
-]
-```
-
-### 5. Learning Rate Scheduling
-
-```
-;; Simple learning rate decay
-update-learning-rate: func [initial-lr epoch decay-rate] [
-    initial-lr / (1.0 + decay-rate * epoch)
-]
-
-;; Example usage in training loop
-initial-lr: 0.01
-decay-rate: 0.01
-
+;; Training loop
 repeat epoch 100 [
-    current-lr: update-learning-rate initial-lr epoch decay-rate
-    print ["Epoch:" epoch "Learning rate:" current-lr]
-]
-```
-
-## Performance Tips
-
-### 1. Efficient Tensor Operations
-
-```
-;; Prefer vectorized operations over loops when possible
-;; Good: Using built-in tensor operations
-a: covenant/tensor [1.0 2.0 3.0]
-b: covenant/tensor [4.0 5.0 6.0]
-result: covenant/mul a b  ; Vectorized operation
-
-;; Less efficient: Manual element-wise operations
-manual-result: make block! 3
-repeat i 3 [
-    append manual-result a/data/:i * b/data/:i
-]
-```
-
-### 2. Memory Management
-
-```
-;; Reuse tensors when possible to minimize allocations
-reuse-tensor: func [existing-tensor new-data] [
-    ;; Update tensor data in-place if shapes match
-    if length? existing-tensor/data = length? new-data [
-        repeat i length? new-data [
-            existing-tensor/data/:i: new-data/:i
-        ]
-    ]
-    existing-tensor
-]
-```
-
-### 3. Batch Processing
-
-```
-;; Process data in batches for efficiency
-process-batch: func [model inputs targets batch-size] [
-    results: make block! batch-size
+    ;; Forward pass
+    predictions: covenant/add (covenant/mul w x-train) b
     
-    repeat i batch-size [
-        input: inputs/:i
-        target: targets/:i
-        prediction: model/forward input
-        append results prediction
+    ;; Compute loss (MSE)
+    loss: covenant/nn/mse_loss predictions y-train
+    
+    ;; In a real implementation, we would call loss/backward() here
+    ;; For this example, we'll just print the loss
+    if (epoch // 20) = 1 [
+        print ["Epoch" epoch "Loss:" first loss/data]
     ]
     
-    results
-]
-```
-
-## Common Pitfalls and Solutions
-
-### 1. Shape Mismatches
-
-```
-;; Always verify tensor shapes before operations
-verify-shapes: func [tensor1 tensor2 operation] [
-    if tensor1/shape <> tensor2/shape [
-        print ["Shape mismatch in" operation ": " mold tensor1/shape "<>" mold tensor2/shape]
-        throw "Shape mismatch error"
-    ]
+    ;; Update parameters (this would use computed gradients in a real implementation)
+    ; optimizer/step gradients
 ]
 
-;; Usage
-a: covenant/tensor [1.0 2.0 3.0]
-b: covenant/tensor [4.0 5.0]  ; Different shape
-; verify-shapes a b "addition"  ; Would throw error
+print ["Final w:" mold w/data]
+print ["Final b:" mold b/data]
 ```
-
-### 2. Numerical Stability
-
-```
-;; Add small epsilon to prevent division by zero
-safe-divide: func [numerator denominator] [
-    epsilon: 1e-8
-    numerator / (denominator + epsilon)
-]
-
-;; Use numerically stable versions of functions
-stable-softmax: func [x] [
-    ; Subtract max for numerical stability
-    max-val: first x/data
-    foreach val x/data [if val > max-val [max-val: val]]
-    
-    shifted-data: copy x/data
-    repeat i length? shifted-data [
-        shifted-data/:i: shifted-data/:i - max-val
-    ]
-    
-    exp-data: copy shifted-data
-    repeat i length? exp-data [
-        exp-data/:i: exp exp-data/:i  ; Assuming exp function exists
-    ]
-    
-    sum-exp: 0.0
-    foreach val exp-data [sum-exp: sum-exp + val]
-    
-    result-data: copy exp-data
-    repeat i length? result-data [
-        result-data/:i: result-data/:i / sum-exp
-    ]
-    
-    make object! [
-        data: result-data
-        shape: x/shape
-        dtype: x/dtype
-    ]
-]
-```
-
-This comprehensive guide provides practical examples and best practices for using the Covenant AI Framework effectively.
