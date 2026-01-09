@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Autograd Test"
     Description: "Test the autograd system in Covenant AI Framework"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
