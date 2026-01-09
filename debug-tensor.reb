@@ -1,7 +1,7 @@
 REBOL [
     Title: "Debug Tensor Creation"
     Description: "Debug script to understand tensor creation"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
