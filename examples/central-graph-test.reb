@@ -1,7 +1,7 @@
 REBOL [
     Title: "Central Graph System Test"
     Description: "Test the central graph ownership system"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
