@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Utilities Module"
     Description: "Utility functions for Covenant AI Framework"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
