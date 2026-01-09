@@ -1,7 +1,7 @@
 REBOL [
     Title: "Simple Test"
     Description: "Simple test to isolate the issue"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
