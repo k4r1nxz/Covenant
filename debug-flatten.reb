@@ -1,7 +1,7 @@
 REBOL [
     Title: "Debug Flatten Function"
     Description: "Debug script to understand flatten function"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
