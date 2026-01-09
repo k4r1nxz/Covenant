@@ -1,7 +1,7 @@
 REBOL [
     Title: "Autograd Verification"
     Description: "Verify that the autograd system is working"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
