@@ -1,7 +1,7 @@
 REBOL [
     Title: "Simple Autograd Test"
     Description: "Simple test to verify autograd system works"
-    Version: 1.0.0
+    Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
