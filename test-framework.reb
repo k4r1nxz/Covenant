@@ -6,7 +6,7 @@ REBOL [
 ]
 
 ;; Load the Covenant framework
-do %covenant.r
+do %covenant.reb
 
 print "Covenant AI Framework - Functionality Test"
 print "=========================================="
