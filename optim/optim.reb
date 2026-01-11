@@ -1,14 +1,14 @@
 REBOL [
     Title: "Covenant Optimization Module"
     Description: "Optimization algorithms for Covenant AI Framework"
-    Version: 1.1.0
+    Version: 1.2.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
 
 ;; Optimization algorithms
 optim: context [
-    ;; Stochastic Gradient Descent
+    ;; Stochastic Gradient Descent - optimized version
     sgd: func [
         "Stochastic Gradient Descent optimizer"
         param-list [block!] "Parameters to optimize"
@@ -21,7 +21,7 @@ optim: context [
         lr-local: lr
         momentum-local: either momentum [mom] [0.0]
         nesterov-local: either nesterov [true] [false]
-
+        
         ; Initialize velocity if momentum is used
         velocity: make block! length? param-list
         loop length? param-list [append velocity 0.0]
@@ -35,32 +35,36 @@ optim: context [
             velocity: velocity
 
             step: func [gradients] [
-                repeat idx length? params-local [
+                len: length? params-local
+                repeat idx len [
                     g: gradients/:idx
-
+                    
                     ; Update velocity
-                    velocity/:idx: (momentum-local * velocity/:idx) - (lr-local * g)
-
+                    vel: velocity/:idx
+                    new-vel: (momentum-local * vel) - (lr-local * g)
+                    velocity/:idx: new-vel
+                    
                     ; If using Nesterov momentum, add additional term
                     if nesterov-local [
-                        velocity/:idx: velocity/:idx - (momentum-local * lr-local * g)
+                        new-vel: new-vel - (momentum-local * lr-local * g)
                     ]
-
+                    
                     ; Update parameters
-                    params-local/:idx: params-local/:idx + velocity/:idx
+                    params-local/:idx: params-local/:idx + new-vel
                 ]
             ]
-
+            
             zero-grad: func [] [
                 ; Reset velocity
-                repeat idx length? velocity [
+                len: length? velocity
+                repeat idx len [
                     velocity/:idx: 0.0
                 ]
             ]
         ]
     ]
 
-    ;; Adam optimizer (improved implementation)
+    ;; Adam optimizer (improved implementation) - optimized version
     adam: func [
         "Adam optimizer"
         param-list [block!] "Parameters to optimize"
@@ -78,7 +82,8 @@ optim: context [
         t-local: 0  ; Timestep
 
         ; Initialize moments to zero
-        loop length? param-list [
+        len: length? param-list
+        loop len [
             append m-local 0.0
             append v-local 0.0
         ]
@@ -101,29 +106,37 @@ optim: context [
 
             step: func [gradients] [
                 t-local: t-local + 1
-                repeat idx length? params-local [
+                len: length? params-local
+                repeat idx len [
                     g: gradients/:idx
 
                     ; Update biased first moment estimate
-                    m-local/:idx: (beta1-local * m-local/:idx) + ((1 - beta1-local) * g)
+                    m-val: m-local/:idx
+                    new-m: (beta1-local * m-val) + ((1 - beta1-local) * g)
+                    m-local/:idx: new-m
 
                     ; Update biased second raw moment estimate
-                    v-local/:idx: (beta2-local * v-local/:idx) + ((1 - beta2-local) * (g * g))
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (beta2-local * v-val) + ((1 - beta2-local) * g-sq)
+                    v-local/:idx: new-v
 
                     ; Compute bias-corrected first moment estimate
-                    m-hat: m-local/:idx / (1 - (power beta1-local t-local))
+                    m-hat: new-m / (1 - (power beta1-local t-local))
 
                     ; Compute bias-corrected second raw moment estimate
-                    v-hat: v-local/:idx / (1 - (power beta2-local t-local))
+                    v-hat: new-v / (1 - (power beta2-local t-local))
 
                     ; Update parameters
-                    params-local/:idx: params-local/:idx - (lr-local * m-hat / (core/square-root (v-hat + epsilon-local)))
+                    sqrt-v-eps: core/square-root (v-hat + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * m-hat / sqrt-v-eps)
                 ]
             ]
-
+            
             zero-grad: func [] [
                 ; Reset moments
-                repeat idx length? m-local [
+                len: length? m-local
+                repeat idx len [
                     m-local/:idx: 0.0
                     v-local/:idx: 0.0
                 ]
@@ -132,7 +145,7 @@ optim: context [
         ]
     ]
 
-    ;; RMSprop optimizer
+    ;; RMSprop optimizer - optimized version
     rmsprop: func [
         "RMSprop optimizer"
         param-list [block!] "Parameters to optimize"
@@ -147,7 +160,8 @@ optim: context [
         t-local: 0  ; Timestep
 
         ; Initialize to zero
-        loop length? param-list [append v-local 0.0]
+        len: length? param-list
+        loop len [append v-local 0.0]
 
         lr-local: lr
         alpha-local: either alpha [a] [0.999]
@@ -164,27 +178,33 @@ optim: context [
 
             step: func [gradients] [
                 t-local: t-local + 1
-                repeat idx length? params-local [
+                len: length? params-local
+                repeat idx len [
                     g: gradients/:idx
 
                     ; Update running average of squared gradients
-                    v-local/:idx: (alpha-local * v-local/:idx) + ((1 - alpha-local) * (g * g))
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (alpha-local * v-val) + ((1 - alpha-local) * g-sq)
+                    v-local/:idx: new-v
 
                     ; Update parameters
-                    params-local/:idx: params-local/:idx - (lr-local * g / (core/square-root (v-local/:idx + epsilon-local)))
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * g / sqrt-v-eps)
                 ]
             ]
-
+            
             zero-grad: func [] [
                 ; Reset running average
-                repeat idx length? v-local [
+                len: length? v-local
+                repeat idx len [
                     v-local/:idx: 0.0
                 ]
             ]
         ]
     ]
 
-    ;; Adagrad optimizer
+    ;; Adagrad optimizer - optimized version
     adagrad: func [
         "Adagrad optimizer"
         param-list [block!] "Parameters to optimize"
@@ -197,7 +217,8 @@ optim: context [
         t-local: 0  ; Timestep
 
         ; Initialize to zero
-        loop length? param-list [append v-local 0.0]
+        len: length? param-list
+        loop len [append v-local 0.0]
 
         lr-local: lr
         epsilon-local: either epsilon [eps] [1e-8]
@@ -212,27 +233,33 @@ optim: context [
 
             step: func [gradients] [
                 t-local: t-local + 1
-                repeat idx length? params-local [
+                len: length? params-local
+                repeat idx len [
                     g: gradients/:idx
 
                     ; Update sum of squared gradients
-                    v-local/:idx: v-local/:idx + (g * g)
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: v-val + g-sq
+                    v-local/:idx: new-v
 
                     ; Update parameters
-                    params-local/:idx: params-local/:idx - (lr-local * g / (core/square-root (v-local/:idx + epsilon-local)))
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * g / sqrt-v-eps)
                 ]
             ]
-
+            
             zero-grad: func [] [
                 ; Reset sum of squared gradients
-                repeat idx length? v-local [
+                len: length? v-local
+                repeat idx len [
                     v-local/:idx: 0.0
                 ]
             ]
         ]
     ]
 
-    ;; Adadelta optimizer
+    ;; Adadelta optimizer - optimized version
     adadelta: func [
         "Adadelta optimizer"
         param-list [block!] "Parameters to optimize"
@@ -247,7 +274,8 @@ optim: context [
         t-local: 0  ; Timestep
 
         ; Initialize to zero
-        loop length? param-list [
+        len: length? param-list
+        loop len [
             append v-local 0.0
             append delta-local 0.0
         ]
@@ -266,26 +294,36 @@ optim: context [
 
             step: func [gradients] [
                 t-local: t-local + 1
-                repeat idx length? params-local [
+                len: length? params-local
+                repeat idx len [
                     g: gradients/:idx
 
                     ; Update running average of squared gradients
-                    v-local/:idx: (rho-local * v-local/:idx) + ((1 - rho-local) * (g * g))
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (rho-local * v-val) + ((1 - rho-local) * g-sq)
+                    v-local/:idx: new-v
 
                     ; Calculate parameter update
-                    param-update: - ((core/square-root (delta-local/:idx + epsilon-local)) / (core/square-root (v-local/:idx + epsilon-local))) * g
+                    sqrt-delta-eps: core/square-root (delta-local/:idx + epsilon-local)
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    param-update: - (sqrt-delta-eps / sqrt-v-eps) * g
 
                     ; Update running average of squared parameter updates
-                    delta-local/:idx: (rho-local * delta-local/:idx) + ((1 - rho-local) * (param-update * param-update))
+                    delta-val: delta-local/:idx
+                    update-sq: param-update * param-update
+                    new-delta: (rho-local * delta-val) + ((1 - rho-local) * update-sq)
+                    delta-local/:idx: new-delta
 
                     ; Update parameters
                     params-local/:idx: params-local/:idx + param-update
                 ]
             ]
-
+            
             zero-grad: func [] [
                 ; Reset running averages
-                repeat idx length? v-local [
+                len: length? v-local
+                repeat idx len [
                     v-local/:idx: 0.0
                     delta-local/:idx: 0.0
                 ]
@@ -295,7 +333,7 @@ optim: context [
 
     ;; Learning rate scheduler
     lr-scheduler: context [
-        ;; Step learning rate scheduler
+        ;; Step learning rate scheduler - optimized version
         step-lr: func [
             "Step learning rate scheduler"
             optimizer [object!] "Optimizer to schedule"
@@ -324,7 +362,7 @@ optim: context [
             ]
         ]
 
-        ;; Exponential learning rate scheduler
+        ;; Exponential learning rate scheduler - optimized version
         exp-lr: func [
             "Exponential learning rate scheduler"
             optimizer [object!] "Optimizer to schedule"
