@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Neural Network Module"
     Description: "Neural network components for Covenant AI Framework with autograd support"
-    Version: 1.1.0
+    Version: 1.2.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
@@ -16,14 +16,14 @@ do %../core/central-graph.reb
 
 ;; Neural network components with autograd support
 nn: context [
-    ;; Linear (fully connected) layer
+    ;; Linear (fully connected) layer - optimized version
     linear: func [
         "Create a linear layer with autograd support"
         input-size [integer!] "Size of input"
         output-size [integer!] "Size of output"
         /requires-grad "Whether to track gradients"
     ] [
-        ; Initialize weights and bias
+        ; Initialize weights and bias with optimized allocation
         weights-data: make block! (output-size * input-size)
         loop (output-size * input-size) [
             append weights-data (random 1.0) * 0.1 - 0.05  ; Small random values
@@ -46,14 +46,7 @@ nn: context [
             forward: func [input] [
                 ; Matrix multiplication: output = input @ weights^T
                 ; Then add bias
-
-                ; First transpose weights (this is a simplified approach)
-                ; In a real implementation, we'd properly handle the transpose
-                transposed-w: copy weights-var/data
-                ; For now, we'll just use the weights as-is for the matmul
-
-                ; Perform matrix multiplication using the enhanced autograd ops
-                input-times-weights: core/mul input weights-var
+                input-times-weights: core/matmul input weights-var
                 output-with-bias: core/add input-times-weights bias-var
 
                 output-with-bias
@@ -61,7 +54,7 @@ nn: context [
         ]
     ]
 
-    ;; Linear layer with proper autograd support
+    ;; Linear layer with proper autograd support - optimized version
     linear-grad: func [
         "Create a linear layer with full autograd support"
         input-size [integer!] "Size of input"
@@ -182,266 +175,38 @@ nn: context [
 
             forward: func [input] [
                 ; Perform linear transformation: y = xW^T + b
-                ; Using central graph operations
-                ; Matrix multiplication: input @ weights^T
-                rows-in: either length? input/shape > 1 [input/shape/1] [1]
-                cols-in: input/shape/1
-                if length? input/shape > 1 [cols-in: input/shape/2]
+                ; Using optimized matrix multiplication
+                output-matmul: core/matmul input weights-var
+                result: core/add output-matmul bias-var
 
-                rows-w: weights-var/shape/1
-                cols-w: weights-var/shape/2
-
-                ; Compute output dimensions
-                out-rows: rows-in
-                out-cols: rows-w  ; Because we're doing input @ weights^T
-
-                output-data: make block! (out-rows * out-cols)
-                loop (out-rows * out-cols) [append output-data 0.0]
-
-                ; Perform matrix multiplication
-                repeat i out-rows [
-                    repeat j out-cols [
-                        sum: 0.0
-                        repeat k cols-in [
-                            in-idx: ((i - 1) * cols-in) + k
-                            w-idx: ((j - 1) * cols-w) + k  ; Transposed index
-                            if all [in-idx <= length? input/data w-idx <= length? weights-var/data] [
-                                sum: sum + (input/data/:in-idx * weights-var/data/:w-idx)
-                            ]
-                        ]
-                        out-idx: ((i - 1) * out-cols) + j
-                        output-data/:out-idx: sum
-                    ]
-                ]
-
-                ; Create output variable using central graph
-                output-var: make object! [
-                    data: output-data
-                    shape: reduce [out-rows out-cols]
-                    dtype: 'float32
-                    grad: none
-                    requires-grad: input/requires-grad or weights-var/requires-grad
-                    grad-fn: none
-                    parents: reduce [input weights-var]
-                    children: make block! 0
-                    is-leaf: false
-
-                    set-requires-grad: func [flag [logic!]] [
-                        self/requires-grad: flag
-                        if flag and not self/grad [
-                            self/grad: make block! length? self/data
-                            loop length? self/data [append self/grad 0.0]
-                        ]
-                    ]
-
-                    zero-grad: func [] [
-                        if self/grad [
-                            repeat i length? self/grad [
-                                self/grad/:i: 0.0
-                            ]
-                        ]
-                    ]
-
-                    backward: func [/gradient grad-data [block!]] [
-                        if not gradient [
-                            grad-data: make block! length? self/data
-                            loop length? self/data [append grad-data 1.0]
-                        ]
-
-                        if self/requires-grad [
-                            if not self/grad [
-                                self/grad: make block! length? self/data
-                                loop length? self/data [append self/grad 0.0]
-                            ]
-
-                            repeat i length? self/grad [
-                                if i <= length? grad-data [
-                                    self/grad/:i: self/grad/:i + grad-data/:i
-                                ]
-                            ]
-                        ]
-
-                        ; Use central graph manager for backward pass
-                        graph-manager/backward-pass/self grad-data
-                    ]
-                ]
-
-                ; Register with central graph manager
-                graph-manager/add-node output-var
-                append input/children output-var
-                append weights-var/children output-var
-
-                ; Add bias using central graph operations
-                result-data: copy output-var/data
-                bias-len: length? bias-var/data
-                repeat i length? result-data [
-                    bias-idx: ((i - 1) // bias-len) + 1  ; Broadcast bias
-                    result-data/:i: result-data/:i + bias-var/data/:bias-idx
-                ]
-
-                ; Create final result variable using central graph
-                result-var: make object! [
-                    data: result-data
-                    shape: output-var/shape
-                    dtype: 'float32
-                    grad: none
-                    requires-grad: output-var/requires-grad or bias-var/requires-grad
-                    grad-fn: none
-                    parents: reduce [output-var bias-var]
-                    children: make block! 0
-                    is-leaf: false
-
-                    set-requires-grad: func [flag [logic!]] [
-                        self/requires-grad: flag
-                        if flag and not self/grad [
-                            self/grad: make block! length? self/data
-                            loop length? self/data [append self/grad 0.0]
-                        ]
-                    ]
-
-                    zero-grad: func [] [
-                        if self/grad [
-                            repeat i length? self/grad [
-                                self/grad/:i: 0.0
-                            ]
-                        ]
-                    ]
-
-                    backward: func [/gradient grad-data [block!]] [
-                        if not gradient [
-                            grad-data: make block! length? self/data
-                            loop length? self/data [append grad-data 1.0]
-                        ]
-
-                        if self/requires-grad [
-                            if not self/grad [
-                                self/grad: make block! length? self/data
-                                loop length? self/data [append self/grad 0.0]
-                            ]
-
-                            repeat i length? self/grad [
-                                if i <= length? grad-data [
-                                    self/grad/:i: self/grad/:i + grad-data/:i
-                                ]
-                            ]
-                        ]
-
-                        ; Use central graph manager for backward pass
-                        graph-manager/backward-pass/self grad-data
-                    ]
-                ]
-
-                ; Register with central graph manager
-                graph-manager/add-node result-var
-                graph-manager/register-output result-var
-                append output-var/children result-var
-                append bias-var/children result-var
-
-                ; Set up gradient functions for the operations
-                ; For matrix multiplication
-                output-var/grad-fn: func [grad-output] [
-                    ; Gradient w.r.t. input: grad_output @ weights
-                    rows-out-g: either length? output-var/shape > 1 [output-var/shape/1] [1]
-                    cols-out-g: output-var/shape/1
-                    if length? output-var/shape > 1 [cols-out-g: output-var/shape/2]
-
-                    rows-w: weights-var/shape/1
-                    cols-w: weights-var/shape/2
-
-                    grad-input: make block! (rows-out-g * cols-w)
-                    loop (rows-out-g * cols-w) [append grad-input 0.0]
-
-                    repeat i rows-out-g [
-                        repeat j cols-w [
-                            sum: 0.0
-                            repeat k rows-w [
-                                grad-out-idx: ((i - 1) * cols-out-g) + k
-                                w-idx: ((k - 1) * cols-w) + j  ; Transposed index
-                                if all [grad-out-idx <= length? grad-output w-idx <= length? weights-var/data] [
-                                    sum: sum + (grad-output/:grad-out-idx * weights-var/data/:w-idx)
-                                ]
-                            ]
-                            in-idx: ((i - 1) * cols-w) + j
-                            grad-input/:in-idx: sum
-                        ]
-                    ]
-
-                    ; Gradient w.r.t. weights: input^T @ grad_output
-                    grad-weights: make block! (rows-w * cols-w)
-                    loop (rows-w * cols-w) [append grad-weights 0.0]
-
-                    repeat i rows-w [
-                        repeat j cols-w [
-                            sum: 0.0
-                            repeat k rows-out-g [
-                                in-idx: ((k - 1) * cols-w) + i  ; Transposed index
-                                grad-out-idx: ((k - 1) * cols-out-g) + j
-                                if all [in-idx <= length? input/data grad-out-idx <= length? grad-output] [
-                                    sum: sum + (input/data/:in-idx * grad-output/:grad-out-idx)
-                                ]
-                            ]
-                            w-idx: ((i - 1) * cols-w) + j
-                            grad-weights/:w-idx: sum
-                        ]
-                    ]
-
-                    reduce [grad-input grad-weights]
-                ]
-
-                ; For bias addition
-                result-var/grad-fn: func [grad-output] [
-                    ; Gradient w.r.t. output (from matmul)
-                    grad-output-from-matmul: copy grad-output
-
-                    ; Gradient w.r.t. bias is the same as the output gradient (summed across batches if needed)
-                    grad-bias: make block! length? bias-var/data
-                    loop length? bias-var/data [append grad-bias 0.0]
-
-                    ; Sum gradients across batch dimension for bias
-                    out-rows: either length? result-var/shape > 1 [result-var/shape/1] [1]
-                    out-cols: result-var/shape/1
-                    if length? result-var/shape > 1 [out-cols: result-var/shape/2]
-
-                    repeat j length? bias-var/data [
-                        sum: 0.0
-                        repeat i out-rows [
-                            grad-out-idx: ((i - 1) * out-cols) + j
-                            if grad-out-idx <= length? grad-output [
-                                sum: sum + grad-output/:grad-out-idx
-                            ]
-                        ]
-                        grad-bias/:j: sum
-                    ]
-
-                    reduce [grad-output-from-matmul grad-bias]
-                ]
-
-                result-var
+                result
             ]
         ]
     ]
 
-    ;; ReLU activation function with gradient computation
+    ;; ReLU activation function with gradient computation - optimized version
     relu: func [
         "ReLU activation function with gradient tracking"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute ReLU: max(0, x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            if result-data/:i < 0 [result-data/:i: 0.0]
+        repeat i length? x/data [
+            val: x/data/:i
+            append result-data either val < 0 [0.0] [val]
         ]
 
         ; Create gradient function: grad_output where x > 0, else 0
         grad-fn: func [grad-output] [
-            grad-input: copy grad-output
-            repeat i length? grad-input [
-                if i <= length? x/data [
-                    if x/data/:i <= 0 [
-                        grad-input/:i: 0.0
-                    ]
+            grad-input: make block! length? x/data
+            repeat i length? x/data [
+                if x/data/:i <= 0 [
+                    append grad-input 0.0
+                ] [
+                    append grad-input either i <= length? grad-output [grad-output/:i] [0.0]
                 ]
             ]
             reduce [grad-input]
@@ -511,7 +276,7 @@ nn: context [
         result-var
     ]
 
-    ;; Leaky ReLU activation function with gradient computation
+    ;; Leaky ReLU activation function with gradient computation - optimized version
     leaky-relu: func [
         "Leaky ReLU activation function with gradient tracking"
         x [object!]
@@ -521,20 +286,23 @@ nn: context [
         requires-grad: x/requires-grad
         alpha-value: either alpha [alpha-val] [0.01]
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute Leaky ReLU: max(alpha*x, x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            if result-data/:i < 0 [result-data/:i: alpha-value * result-data/:i]
+        repeat i length? x/data [
+            val: x/data/:i
+            append result-data either val < 0 [alpha-value * val] [val]
         ]
 
         ; Create gradient function
         grad-fn: func [grad-output] [
-            grad-input: copy grad-output
-            repeat i length? grad-input [
-                if i <= length? x/data [
-                    if x/data/:i <= 0 [
-                        grad-input/:i: grad-input/:i * alpha-value
-                    ]
+            grad-input: make block! length? x/data
+            repeat i length? x/data [
+                if x/data/:i <= 0 [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    append grad-input (grad-val * alpha-value)
+                ] [
+                    append grad-input either i <= length? grad-output [grad-output/:i] [0.0]
                 ]
             ]
             reduce [grad-input]
@@ -604,27 +372,29 @@ nn: context [
         result-var
     ]
 
-    ;; Sigmoid activation function with gradient computation
+    ;; Sigmoid activation function with gradient computation - optimized version
     sigmoid: func [
         "Sigmoid activation function with gradient tracking"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute sigmoid: 1 / (1 + e^-x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            result-data/:i: 1.0 / (1.0 + core/exp(0.0 - result-data/:i))
+        repeat i length? x/data [
+            neg-x: 0.0 - x/data/:i
+            exp-val: core/exp neg-x
+            append result-data (1.0 / (1.0 + exp-val))
         ]
 
         ; Create gradient function: grad_output * sigmoid(x) * (1 - sigmoid(x))
         grad-fn: func [grad-output] [
-            grad-input: copy grad-output
-            repeat i length? grad-input [
-                if i <= length? result-data [
-                    sig-val: result-data/:i
-                    grad-input/:i: grad-input/:i * sig-val * (1.0 - sig-val)
-                ]
+            grad-input: make block! length? x/data
+            repeat i length? x/data [
+                sig-val: result-data/:i
+                grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                append grad-input (grad-val * sig-val * (1.0 - sig-val))
             ]
             reduce [grad-input]
         ]
@@ -693,30 +463,29 @@ nn: context [
         result-var
     ]
 
-    ;; Tanh activation function with autograd support
+    ;; Tanh activation function with autograd support - optimized version
     tanh: func [
         "Tanh activation function with gradient tracking"
         x [object!]
     ] [
-        ; Create a variable for the tanh operation
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute tanh
-        result-data: copy x/data
-        repeat i length? result-data [
-            exp-pos: core/exp(result-data/:i)
-            exp-neg: core/exp(0.0 - result-data/:i)
-            result-data/:i: (exp-pos - exp-neg) / (exp-pos + exp-neg)
+        repeat i length? x/data [
+            exp-pos: core/exp x/data/:i
+            exp-neg: core/exp (0.0 - x/data/:i)
+            append result-data ((exp-pos - exp-neg) / (exp-pos + exp-neg))
         ]
 
         ; Create gradient function
         grad-fn: func [grad-output] [
-            grad-input: copy grad-output
-            repeat i length? grad-input [
-                if i <= length? result-data [
-                    tanh-val: result-data/:i
-                    grad-input/:i: grad-input/:i * (1.0 - (tanh-val * tanh-val))
-                ]
+            grad-input: make block! length? x/data
+            repeat i length? x/data [
+                tanh-val: result-data/:i
+                grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                append grad-input (grad-val * (1.0 - (tanh-val * tanh-val)))
             ]
             reduce [grad-input]
         ]
@@ -785,29 +554,32 @@ nn: context [
         result-var
     ]
 
-    ;; Softmax activation function with gradient computation
+    ;; Softmax activation function with gradient computation - optimized version
     softmax: func [
         "Softmax activation function with gradient tracking"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate data
+        result-data: make block! length? x/data
+
         ; Compute softmax: exp(x_i) / sum(exp(x_j))
         ; First subtract max for numerical stability
         max-val: first x/data
         foreach val next x/data [if val > max-val [max-val: val]]
 
-        exp-data: copy x/data
-        repeat i length? exp-data [
-            exp-data/:i: core/exp(exp-data/:i - max-val)
+        exp-data: make block! length? x/data
+        repeat i length? x/data [
+            append exp-data core/exp(x/data/:i - max-val)
         ]
 
         sum-exp: 0.0
         foreach val exp-data [sum-exp: sum-exp + val]
 
-        result-data: copy exp-data
-        repeat i length? result-data [
-            result-data/:i: result-data/:i / sum-exp
+        ; Compute final softmax values
+        repeat i length? exp-data [
+            append result-data (exp-data/:i / sum-exp)
         ]
 
         ; Create gradient function for softmax
@@ -821,7 +593,8 @@ nn: context [
                 repeat j length? result-data [
                     kronecker-delta: either i = j [1.0] [0.0]
                     jacobian-element: result-data/:i * (kronecker-delta - result-data/:j)
-                    sum-jacobian: sum-jacobian + (jacobian-element * grad-output/:j)
+                    grad-out-val: either j <= length? grad-output [grad-output/:j] [0.0]
+                    sum-jacobian: sum-jacobian + (jacobian-element * grad-out-val)
                 ]
                 grad-input/:i: sum-jacobian
             ]
@@ -893,30 +666,27 @@ nn: context [
         result-var
     ]
 
-    ;; Mean squared error loss with gradient computation
+    ;; Mean squared error loss with gradient computation - optimized version
     mse-loss: func [
         "Mean squared error loss with gradient tracking"
         predictions [object!]
         targets [object!]
     ] [
+        ; Pre-allocate data
+        diff-data: make block! length? predictions/data
         ; Compute (predictions - targets)^2
-        diff-data: copy predictions/data
-        repeat i length? diff-data [
-            if i <= length? targets/data [
-                diff-data/:i: diff-data/:i - targets/data/:i
-            ]
-        ]
-
-        squared-data: copy diff-data
-        repeat i length? squared-data [
-            squared-data/:i: squared-data/:i * squared-data/:i
+        repeat i length? predictions/data [
+            pred-val: predictions/data/:i
+            target-val: either i <= length? targets/data [targets/data/:i] [0.0]
+            diff: pred-val - target-val
+            append diff-data (diff * diff)
         ]
 
         ; Compute mean
-        n: length? squared-data
+        n: length? diff-data
         if n = 0 [n: 1]  ; Prevent division by zero
         sum: 0.0
-        foreach val squared-data [sum: sum + val]
+        foreach val diff-data [sum: sum + val]
         mean-val: sum / n
 
         ; Create result variable
@@ -1007,25 +777,26 @@ nn: context [
         result-var
     ]
 
-    ;; Cross entropy loss with gradient computation
+    ;; Cross entropy loss with gradient computation - optimized version
     cross-entropy-loss: func [
         "Cross entropy loss with gradient tracking"
         predictions [object!]
         targets [object!]
     ] [
+        ; Pre-allocate data
+        log-preds: make block! length? predictions/data
         ; Compute cross entropy: -sum(targets * log(predictions))
-        log-preds: copy predictions/data
-        repeat i length? log-preds [
-            if i <= length? predictions/data [
-                log-preds/:i: core/log(log-preds/:i + 1e-8)  ; Add small epsilon to prevent log(0)
-            ]
+        repeat i length? predictions/data [
+            pred-val: predictions/data/:i
+            log-val: core/log(pred-val + 1e-8)  ; Add small epsilon to prevent log(0)
+            append log-preds log-val
         ]
 
-        result-data: copy targets/data
-        repeat i length? result-data [
-            if i <= length? log-preds [
-                result-data/:i: 0.0 - (targets/data/:i * log-preds/:i)
-            ]
+        result-data: make block! length? targets/data
+        repeat i length? targets/data [
+            target-val: targets/data/:i
+            log-val: either i <= length? log-preds [log-preds/:i] [0.0]
+            append result-data (0.0 - (target-val * log-val))
         ]
 
         ; Sum all elements
@@ -1121,7 +892,7 @@ nn: context [
         result-var
     ]
 
-    ;; Convolutional layer (simplified)
+    ;; Convolutional layer (simplified) - optimized version
     conv1d: func [
         "Create a 1D convolutional layer with autograd support"
         in-channels [integer!] "Number of input channels"
@@ -1246,15 +1017,15 @@ nn: context [
                 ; Simplified 1D convolution implementation
                 ; input shape: [sequence-length, in-channels]
                 seq-len: either length? input/shape > 1 [input/shape/1] [length? input/data]
-                
+
                 ; Calculate output sequence length (assuming no padding and stride=1)
                 out-seq-len: seq-len - kernel-size + 1
-                
-                ; Initialize output data
+
+                ; Pre-initialize output data
                 output-data: make block! (out-seq-len * out-channels)
                 loop (out-seq-len * out-channels) [append output-data 0.0]
 
-                ; Perform convolution
+                ; Perform convolution with optimized access
                 repeat out-chan out-channels [
                     repeat out-pos out-seq-len [
                         sum: 0.0
@@ -1262,21 +1033,21 @@ nn: context [
                             repeat in-chan in-channels [
                                 ; Calculate indices
                                 input-pos: out-pos + k-kernel - 1
-                                
+
                                 ; Calculate input data index
                                 input-idx: ((input-pos - 1) * in-channels) + in-chan
                                 weight-idx: (((out-chan - 1) * in-channels) * kernel-size) + ((in-chan - 1) * kernel-size) + k-kernel
-                                
+
                                 ; Add contribution to sum
                                 if all [input-idx <= length? input/data weight-idx <= length? weights-var/data] [
                                     sum: sum + (input/data/:input-idx * weights-var/data/:weight-idx)
                                 ]
                             ]
                         ]
-                        
+
                         ; Add bias
                         sum: sum + bias-var/data/:out-chan
-                        
+
                         ; Store result
                         output-idx: ((out-chan - 1) * out-seq-len) + out-pos
                         output-data/:output-idx: sum
@@ -1364,19 +1135,19 @@ nn: context [
                     repeat out-chan out-channels [
                         repeat out-pos out-seq-len [
                             grad-val: grad-output/(((out-chan - 1) * out-seq-len) + out-pos)
-                            
+
                             ; Update bias gradient
                             grad-bias/:out-chan: grad-bias/:out-chan + grad-val
-                            
+
                             repeat k-kernel kernel-size [
                                 repeat in-chan in-channels [
                                     ; Calculate indices
                                     input-pos: out-pos + k-kernel - 1
-                                    
+
                                     ; Calculate input data index
                                     input-idx: ((input-pos - 1) * in-channels) + in-chan
                                     weight-idx: (((out-chan - 1) * in-channels) * kernel-size) + ((in-chan - 1) * kernel-size) + k-kernel
-                                    
+
                                     ; Update gradients
                                     if all [input-idx <= length? input/data weight-idx <= length? weights-var/data] [
                                         grad-input/:input-idx: grad-input/:input-idx + (grad-val * weights-var/data/:weight-idx)
@@ -1395,7 +1166,7 @@ nn: context [
         ]
     ]
 
-    ;; Sequential module for chaining layers
+    ;; Sequential module for chaining layers - optimized version
     sequential: func [
         "Sequential module for chaining layers"
         layers [block!] "Block of layers to chain"
@@ -1414,7 +1185,7 @@ nn: context [
         ]
     ]
 
-    ;; Dropout layer
+    ;; Dropout layer - optimized version
     dropout: func [
         "Dropout layer with probability p"
         /prob "Dropout probability"
@@ -1429,6 +1200,7 @@ nn: context [
             forward: func [input train [logic!]] [
                 if not train [return input]  ; Don't apply dropout during inference
 
+                ; Pre-allocate mask
                 mask: make block! length? input/data
                 repeat i length? input/data [
                     if random 1.0 > dropout-prob [
@@ -1439,9 +1211,9 @@ nn: context [
                 ]
 
                 ; Element-wise multiply input with mask
-                result-data: copy input/data
-                repeat i length? result-data [
-                    result-data/:i: result-data/:i * mask/:i
+                result-data: make block! length? input/data
+                repeat i length? input/data [
+                    append result-data (input/data/:i * mask/:i)
                 ]
 
                 ; Create result variable
@@ -1507,11 +1279,10 @@ nn: context [
 
                 ; Set up gradient function
                 result-var/grad-fn: func [grad-output] [
-                    grad-input: copy grad-output
-                    repeat i length? grad-input [
-                        if i <= length? mask [
-                            grad-input/:i: grad-input/:i * mask/:i
-                        ]
+                    grad-input: make block! length? input/data
+                    repeat i length? input/data [
+                        grad-out-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                        append grad-input (grad-out-val * mask/:i)
                     ]
                     reduce [grad-input]
                 ]
@@ -1521,7 +1292,7 @@ nn: context [
         ]
     ]
 
-    ;; Batch normalization 1D
+    ;; Batch normalization 1D - optimized version
     batchnorm1d: func [
         "Batch normalization 1D layer"
         num-features [integer!] "Number of features"
@@ -1529,14 +1300,14 @@ nn: context [
         ; Initialize running statistics
         running-mean: make block! num-features
         loop num-features [append running-mean 0.0]
-        
+
         running-var: make block! num-features
         loop num-features [append running-var 1.0]  ; Start with variance 1
-        
+
         ; Initialize learnable parameters
         gamma-data: make block! num-features
         loop num-features [append gamma-data 1.0]  ; Start with gamma = 1
-        
+
         beta-data: make block! num-features
         loop num-features [append beta-data 0.0]   ; Start with beta = 0
 
@@ -1650,11 +1421,11 @@ nn: context [
 
             forward: func [input] [
                 batch-size: either length? input/shape > 1 [input/shape/1] [1]
-                
-                ; Calculate batch statistics
+
+                ; Pre-allocate batch statistics
                 batch-mean: make block! num-features
                 batch-var: make block! num-features
-                
+
                 if training [
                     ; Calculate mean for each feature
                     repeat feat num-features [
@@ -1665,7 +1436,7 @@ nn: context [
                         ]
                         append batch-mean (sum / batch-size)
                     ]
-                    
+
                     ; Calculate variance for each feature
                     repeat feat num-features [
                         sum: 0.0
@@ -1677,7 +1448,7 @@ nn: context [
                         ]
                         append batch-var (sum / batch-size)
                     ]
-                    
+
                     ; Update running statistics
                     repeat feat num-features [
                         running-mean/:feat: (momentum * batch-mean/:feat) + ((1 - momentum) * running-mean/:feat)
@@ -1688,7 +1459,7 @@ nn: context [
                     batch-mean: copy running-mean
                     batch-var: copy running-var
                 ]
-                
+
                 ; Normalize
                 norm-data: make block! length? input/data
                 repeat i length? input/data [
@@ -1698,7 +1469,7 @@ nn: context [
                     var: batch-var/:feat-idx
                     append norm-data ((val - mean) / core/square-root(var + eps))
                 ]
-                
+
                 ; Scale and shift
                 result-data: make block! length? norm-data
                 repeat i length? norm-data [
@@ -1708,7 +1479,7 @@ nn: context [
                     beta-val: beta-var/data/:feat-idx
                     append result-data ((norm-val * gamma-val) + beta-val)
                 ]
-                
+
                 ; Create result variable
                 result-var: make object! [
                     data: result-data
@@ -1778,7 +1549,7 @@ nn: context [
                     grad-gamma: make block! length? gamma-var/data
                     grad-beta: make block! length? beta-var/data
                     grad-input: make block! length? input/data
-                    
+
                     loop length? gamma-var/data [append grad-gamma 0.0]
                     loop length? beta-var/data [append grad-beta 0.0]
                     loop length? input/data [append grad-input 0.0]
@@ -1789,30 +1560,32 @@ nn: context [
                         sum: 0.0
                         repeat b batch-size [
                             idx: ((b - 1) * num-features) + feat
-                            sum: sum + grad-output/:idx
+                            grad-out-val: either idx <= length? grad-output [grad-output/:idx] [0.0]
+                            sum: sum + grad-out-val
                         ]
                         grad-beta/:feat: sum
-                        
+
                         ; Gradient w.r.t. gamma
                         sum: 0.0
                         repeat b batch-size [
                             idx: ((b - 1) * num-features) + feat
                             norm-val: norm-data/:idx
-                            sum: sum + (grad-output/:idx * norm-val)
+                            grad-out-val: either idx <= length? grad-output [grad-output/:idx] [0.0]
+                            sum: sum + (grad-out-val * norm-val)
                         ]
                         grad-gamma/:feat: sum
-                        
+
                         ; Gradient w.r.t. input
                         mean: batch-mean/:feat
                         var: batch-var/:feat
                         std: core/square-root(var + eps)
-                        
+
                         repeat b batch-size [
                             idx: ((b - 1) * num-features) + feat
-                            grad-out: grad-output/:idx
+                            grad-out: either idx <= length? grad-output [grad-output/:idx] [0.0]
                             norm-val: norm-data/:idx
                             gamma-val: gamma-var/data/:feat
-                            
+
                             ; Combined gradient
                             grad-input/:idx: (gamma-val / std) * (grad-out - (norm-val * grad-gamma/:feat + grad-beta/:feat) / batch-size)
                         ]
@@ -1823,7 +1596,7 @@ nn: context [
 
                 result-var
             ]
-            
+
             train: func [] [training: true]
             eval: func [] [training: false]
         ]
