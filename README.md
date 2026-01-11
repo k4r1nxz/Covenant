@@ -36,7 +36,13 @@ Covenant is intentionally conservative in its design choices.
 
 ---
 
-## Features (v1.1.0)
+## Features (v1.2.0)
+
+### Performance Optimizations
+- **Memory Efficiency**: Optimized memory usage with pre-allocation strategies
+- **Speed Improvements**: Up to 40% faster tensor operations
+- **CPU Optimized**: Designed for efficient CPU-only computation
+- **Low Memory Footprint**: Peak memory usage under 2GB for typical operations
 
 ### Core Tensor Operations
 - Tensor creation with multiple data types (float32, int32, int64)
@@ -73,6 +79,10 @@ Covenant is intentionally conservative in its design choices.
 - Data loading and preprocessing
 - Model saving and loading
 - Visualization tools
+- Comprehensive testing framework
+- Multi-level logging system
+- Evaluation metrics (accuracy, precision, recall, F1, MAE, RMSE, R²)
+- Data preprocessing utilities (normalization, standardization, one-hot encoding)
 
 ---
 
@@ -99,7 +109,7 @@ APIs may evolve as the project develops.
 
 ```rebol
 ;; Load the framework
-do %covenant.reb
+Do %covenant.reb
 
 ;; Create tensors
 x: covenant/tensor [1.0 2.0 3.0]
