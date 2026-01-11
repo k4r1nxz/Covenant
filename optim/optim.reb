@@ -1,329 +1,390 @@
 REBOL [
-    Title: "Covenant Utilities Module"
-    Description: "Utility functions for Covenant AI Framework"
+    Title: "Covenant Optimization Module"
+    Description: "Optimization algorithms for Covenant AI Framework"
     Version: 1.2.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
 
-;; Load data loading utilities
-do %data.reb
-
-;; Utility functions
-utils: context [
-    ;; Load data from file
-    load-data: func [
-        "Load data from a file"
-        file-path [file!] "Path to data file"
-        /as-dataset "Return as dataset object"
+;; Optimization algorithms
+optim: context [
+    ;; Stochastic Gradient Descent - optimized version
+    sgd: func [
+        "Stochastic Gradient Descent optimizer"
+        param-list [block!] "Parameters to optimize"
+        lr [number!] "Learning rate"
+        /momentum "Use momentum"
+        mom [number!] "Momentum factor (default 0.0)"
+        /nesterov "Use Nesterov momentum"
     ] [
-        if as-dataset [
-            data/dataset file-path
-        ] [
-            ; For simplicity, this would load a simple format
-            ; In a real implementation, this would handle various data formats
-            data: read/lines file-path
-            parsed-data: make block! length? data
-            foreach line data [
-                append parsed-data load line
-            ]
-            parsed-data
-        ]
-    ]
-
-    ;; Save model to file with improved serialization
-    save-model: func [
-        "Save model parameters to a file"
-        model [object!] "Model to save"
-        file-path [file!] "Path to save file"
-    ] [
-        ; Create a serializable representation of the model
-        model-data: make object! [
-            type: model/type
-            timestamp: now
-            params: make block! 10
-        ]
-
-        ; Extract parameters from model components
-        if model/weights [
-            append model-data/params make object! [
-                name: 'weights
-                data: copy model/weights/data
-                shape: copy model/weights/shape
-                requires_grad: model/weights/requires-grad
-            ]
-        ]
-
-        if model/bias [
-            append model-data/params make object! [
-                name: 'bias
-                data: copy model/bias/data
-                shape: copy model/bias/shape
-                requires_grad: model/bias/requires-grad
-            ]
-        ]
-
-        ; Handle sequential models
-        if model/layers [
-            model-data/layers: make block! length? model/layers
-            foreach layer model/layers [
-                layer-data: make object! [
-                    type: layer/type
-                    params: make block! 5
-                ]
-
-                ; Extract layer parameters
-                if layer/weights [
-                    append layer-data/params make object! [
-                        name: 'weights
-                        data: copy layer/weights/data
-                        shape: copy layer/weights/shape
-                        requires_grad: layer/weights/requires-grad
-                    ]
-                ]
-
-                if layer/bias [
-                    append layer-data/params make object! [
-                        name: 'bias
-                        data: copy layer/bias/data
-                        shape: copy layer/bias/shape
-                        requires_grad: layer/bias/requires-grad
-                    ]
-                ]
-
-                append model-data/layers layer-data
-            ]
-        ]
-
-        ; Write to file
-        write file-path mold model-data
-        print ["Model saved to:" file-path "at" now/time]
-    ]
-
-    ;; Load model from file with improved deserialization
-    load-model: func [
-        "Load model parameters from a file"
-        file-path [file!] "Path to model file"
-    ] [
-        if not exists? file-path [
-            print ["Error: File does not exist:" file-path]
-            return none
-        ]
-
-        ; Read from file
-        model-data: load file-path
-        print ["Model loaded from:" file-path "at" now/time]
-
-        ; Reconstruct model objects
-        if model-data/layers [
-            ; Reconstruct sequential model
-            layers: make block! length? model-data/layers
-            foreach layer-data model-data/layers [
-                layer: make object! [
-                    type: layer-data/type
-                ]
-
-                foreach param layer-data/params [
-                    if param/name = 'weights [
-                        layer/weights: make object! [
-                            data: copy param/data
-                            shape: copy param/shape
-                            dtype: 'float32
-                            grad: none
-                            requires-grad: param/requires_grad
-                            grad-fn: none
-                            parents: make block! 0
-                            children: make block! 0
-                            is-leaf: true
-                        ]
-                    ]
-
-                    if param/name = 'bias [
-                        layer/bias: make object! [
-                            data: copy param/data
-                            shape: copy param/shape
-                            dtype: 'float32
-                            grad: none
-                            requires-grad: param/requires_grad
-                            grad-fn: none
-                            parents: make block! 0
-                            children: make block! 0
-                            is-leaf: true
-                        ]
-                    ]
-                ]
-
-                append layers layer
-            ]
-
-            model-data/layers: layers
-        ]
-
-        ; Reconstruct individual layer parameters
-        if model-data/params [
-            foreach param model-data/params [
-                if param/name = 'weights [
-                    model-data/weights: make object! [
-                        data: copy param/data
-                        shape: copy param/shape
-                        dtype: 'float32
-                        grad: none
-                        requires-grad: param/requires_grad
-                        grad-fn: none
-                        parents: make block! 0
-                        children: make block! 0
-                        is-leaf: true
-                    ]
-                ]
-
-                if param/name = 'bias [
-                    model-data/bias: make object! [
-                        data: copy param/data
-                        shape: copy param/shape
-                        dtype: 'float32
-                        grad: none
-                        requires-grad: param/requires_grad
-                        grad-fn: none
-                        parents: make block! 0
-                        children: make block! 0
-                        is-leaf: true
-                    ]
-                ]
-            ]
-        ]
-
-        model-data
-    ]
-
-    ;; Visualize tensor (simple text-based visualization)
-    visualize: func [
-        "Visualize tensor data"
-        tensor [object!] "Tensor to visualize"
-    ] [
-        print ["Visualizing tensor with shape:" mold tensor/shape]
-        print ["Data:" mold tensor/data]
-
-        ; For 2D tensors, show in matrix format
-        if (length? tensor/shape) = 2 [
-            rows: tensor/shape/1
-            cols: tensor/shape/2
-            print "Matrix format:"
-            repeat i rows [
-                row-data: copy []
-                repeat j cols [
-                    idx: ((i - 1) * cols) + j
-                    append row-data tensor/data/:idx
-                ]
-                print [mold row-data]
-            ]
-        ]
-    ]
-
-    ;; Simple training loop helper
-    train-step: func [
-        "Perform a single training step"
-        model [object!] "Model to train"
-        input [object!] "Input data"
-        target [object!] "Target data"
-        loss-fn [word!] "Loss function to use"
-        optimizer [object!] "Optimizer"
-    ] [
-        ; Forward pass
-        prediction: model/forward input
-
-        ; Calculate loss
-        loss: do reduce [loss-fn prediction target]
-
-        ; For this simplified version, we'll skip backpropagation
-        ; In a real implementation, this would compute gradients
-
-        ; Return loss
-        loss
-    ]
-
-    ;; Evaluate model performance
-    evaluate: func [
-        "Evaluate model performance"
-        model [object!] "Model to evaluate"
-        test-data [block!] "Test data"
-        loss-fn [word!] "Loss function to use"
-    ] [
-        total-loss: 0.0
-        count: 0
-
-        foreach item test-data [
-            input: item/1
-            target: item/2
-            prediction: model/forward input
-            loss: do reduce [loss-fn prediction target]
-            total-loss: total-loss + loss
-            count: count + 1
-        ]
-
-        total-loss / count
-    ]
-
-    ;; Serialize any object to string
-    serialize: func [
-        "Serialize an object to a string representation"
-        obj [any-type!] "Object to serialize"
-    ] [
-        ; Convert object to string representation
-        mold obj
-    ]
-
-    ;; Deserialize string to object
-    deserialize: func [
-        "Deserialize a string representation back to an object"
-        str [string!] "String representation to deserialize"
-    ] [
-        ; Convert string back to object
-        load str
-    ]
-
-    ;; Pretty print tensor
-    pprint: func [
-        "Pretty print a tensor with formatting"
-        tensor [object!] "Tensor to print"
-        /title "Title for the print"
-        title-str [string!] "Title string"
-    ] [
-        if title [print ["^n" title-str ":"]]
-        print ["Shape:" mold tensor/shape]
-        print ["DType:" tensor/dtype]
-
-        ; Format data based on size
-        if length? tensor/data <= 10 [
-            print ["Data:" mold tensor/data]
-        ] [
-            print ["Data (first 10):" mold copy/part tensor/data 10]
-            print ["... and" (length? tensor/data - 10) "more elements"]
-        ]
-    ]
-
-    ;; Check if a tensor contains NaN or infinity
-    validate-tensor: func [
-        "Check if a tensor contains NaN or infinity values"
-        tensor [object!] "Tensor to validate"
-    ] [
-        has-nan: false
-        has-inf: false
-
-        foreach val tensor/data [
-            if val <> val [has-nan: true]  ; NaN check: NaN is not equal to itself
-            if val > 1e308 [has-inf: true]  ; Infinity check: arbitrary large number
-        ]
+        params-local: copy param-list
+        lr-local: lr
+        momentum-local: either momentum [mom] [0.0]
+        nesterov-local: either nesterov [true] [false]
+        
+        ; Initialize velocity if momentum is used
+        velocity: make block! length? param-list
+        loop length? param-list [append velocity 0.0]
 
         make object! [
-            is-valid: not any [has-nan has-inf]
-            has_nan: has-nan
-            has_inf: has-inf
-            message: either not is-valid [
-                join "" [
-                    either has-nan ["NaN detected; "] [""]
-                    either has-inf ["Infinity detected; "] [""]
+            type: 'sgd
+            params: params-local
+            lr: lr-local
+            momentum: momentum-local
+            nesterov: nesterov-local
+            velocity: velocity
+
+            step: func [gradients] [
+                len: length? params-local
+                repeat idx len [
+                    g: gradients/:idx
+                    
+                    ; Update velocity
+                    vel: velocity/:idx
+                    new-vel: (momentum-local * vel) - (lr-local * g)
+                    velocity/:idx: new-vel
+                    
+                    ; If using Nesterov momentum, add additional term
+                    if nesterov-local [
+                        new-vel: new-vel - (momentum-local * lr-local * g)
+                    ]
+                    
+                    ; Update parameters
+                    params-local/:idx: params-local/:idx + new-vel
                 ]
-            ] ["Valid tensor"]
+            ]
+            
+            zero-grad: func [] [
+                ; Reset velocity
+                len: length? velocity
+                repeat idx len [
+                    velocity/:idx: 0.0
+                ]
+            ]
         ]
     ]
+
+    ;; Adam optimizer (improved implementation) - optimized version
+    adam: func [
+        "Adam optimizer"
+        param-list [block!] "Parameters to optimize"
+        lr [number!] "Learning rate"
+        /beta1 "Beta1 parameter (default 0.9)"
+        b1 [number!] "Beta1 value"
+        /beta2 "Beta2 parameter (default 0.999)"
+        b2 [number!] "Beta2 value"
+        /epsilon "Epsilon parameter (default 1e-8)"
+        eps [number!] "Epsilon value"
+    ] [
+        params-local: copy param-list
+        m-local: make block! length? param-list  ; First moment
+        v-local: make block! length? param-list  ; Second moment
+        t-local: 0  ; Timestep
+
+        ; Initialize moments to zero
+        len: length? param-list
+        loop len [
+            append m-local 0.0
+            append v-local 0.0
+        ]
+
+        lr-local: lr
+        beta1-local: either beta1 [b1] [0.9]
+        beta2-local: either beta2 [b2] [0.999]
+        epsilon-local: either epsilon [eps] [1e-8]
+
+        make object! [
+            type: 'adam
+            params: params-local
+            lr: lr-local
+            beta1: beta1-local
+            beta2: beta2-local
+            epsilon: epsilon-local
+            m: m-local
+            v: v-local
+            t: t-local
+
+            step: func [gradients] [
+                t-local: t-local + 1
+                len: length? params-local
+                repeat idx len [
+                    g: gradients/:idx
+
+                    ; Update biased first moment estimate
+                    m-val: m-local/:idx
+                    new-m: (beta1-local * m-val) + ((1 - beta1-local) * g)
+                    m-local/:idx: new-m
+
+                    ; Update biased second raw moment estimate
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (beta2-local * v-val) + ((1 - beta2-local) * g-sq)
+                    v-local/:idx: new-v
+
+                    ; Compute bias-corrected first moment estimate
+                    m-hat: new-m / (1 - (power beta1-local t-local))
+
+                    ; Compute bias-corrected second raw moment estimate
+                    v-hat: new-v / (1 - (power beta2-local t-local))
+
+                    ; Update parameters
+                    sqrt-v-eps: core/square-root (v-hat + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * m-hat / sqrt-v-eps)
+                ]
+            ]
+            
+            zero-grad: func [] [
+                ; Reset moments
+                len: length? m-local
+                repeat idx len [
+                    m-local/:idx: 0.0
+                    v-local/:idx: 0.0
+                ]
+                t-local: 0
+            ]
+        ]
+    ]
+
+    ;; RMSprop optimizer - optimized version
+    rmsprop: func [
+        "RMSprop optimizer"
+        param-list [block!] "Parameters to optimize"
+        lr [number!] "Learning rate"
+        /alpha "Smoothing constant (default 0.999)"
+        a [number!] "Alpha value"
+        /epsilon "Epsilon parameter (default 1e-8)"
+        eps [number!] "Epsilon value"
+    ] [
+        params-local: copy param-list
+        v-local: make block! length? param-list  ; Running average of squared gradients
+        t-local: 0  ; Timestep
+
+        ; Initialize to zero
+        len: length? param-list
+        loop len [append v-local 0.0]
+
+        lr-local: lr
+        alpha-local: either alpha [a] [0.999]
+        epsilon-local: either epsilon [eps] [1e-8]
+
+        make object! [
+            type: 'rmsprop
+            params: params-local
+            lr: lr-local
+            alpha: alpha-local
+            epsilon: epsilon-local
+            v: v-local
+            t: t-local
+
+            step: func [gradients] [
+                t-local: t-local + 1
+                len: length? params-local
+                repeat idx len [
+                    g: gradients/:idx
+
+                    ; Update running average of squared gradients
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (alpha-local * v-val) + ((1 - alpha-local) * g-sq)
+                    v-local/:idx: new-v
+
+                    ; Update parameters
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * g / sqrt-v-eps)
+                ]
+            ]
+            
+            zero-grad: func [] [
+                ; Reset running average
+                len: length? v-local
+                repeat idx len [
+                    v-local/:idx: 0.0
+                ]
+            ]
+        ]
+    ]
+
+    ;; Adagrad optimizer - optimized version
+    adagrad: func [
+        "Adagrad optimizer"
+        param-list [block!] "Parameters to optimize"
+        lr [number!] "Learning rate"
+        /epsilon "Epsilon parameter (default 1e-8)"
+        eps [number!] "Epsilon value"
+    ] [
+        params-local: copy param-list
+        v-local: make block! length? param-list  ; Sum of squared gradients
+        t-local: 0  ; Timestep
+
+        ; Initialize to zero
+        len: length? param-list
+        loop len [append v-local 0.0]
+
+        lr-local: lr
+        epsilon-local: either epsilon [eps] [1e-8]
+
+        make object! [
+            type: 'adagrad
+            params: params-local
+            lr: lr-local
+            epsilon: epsilon-local
+            v: v-local
+            t: t-local
+
+            step: func [gradients] [
+                t-local: t-local + 1
+                len: length? params-local
+                repeat idx len [
+                    g: gradients/:idx
+
+                    ; Update sum of squared gradients
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: v-val + g-sq
+                    v-local/:idx: new-v
+
+                    ; Update parameters
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    params-local/:idx: params-local/:idx - (lr-local * g / sqrt-v-eps)
+                ]
+            ]
+            
+            zero-grad: func [] [
+                ; Reset sum of squared gradients
+                len: length? v-local
+                repeat idx len [
+                    v-local/:idx: 0.0
+                ]
+            ]
+        ]
+    ]
+
+    ;; Adadelta optimizer - optimized version
+    adadelta: func [
+        "Adadelta optimizer"
+        param-list [block!] "Parameters to optimize"
+        /rho "Rho parameter (default 0.95)"
+        r [number!] "Rho value"
+        /epsilon "Epsilon parameter (default 1e-6)"
+        eps [number!] "Epsilon value"
+    ] [
+        params-local: copy param-list
+        v-local: make block! length? param-list  ; Running average of squared gradients
+        delta-local: make block! length? param-list  ; Running average of squared parameter updates
+        t-local: 0  ; Timestep
+
+        ; Initialize to zero
+        len: length? param-list
+        loop len [
+            append v-local 0.0
+            append delta-local 0.0
+        ]
+
+        rho-local: either rho [r] [0.95]
+        epsilon-local: either epsilon [eps] [1e-6]
+
+        make object! [
+            type: 'adadelta
+            params: params-local
+            rho: rho-local
+            epsilon: epsilon-local
+            v: v-local
+            delta: delta-local
+            t: t-local
+
+            step: func [gradients] [
+                t-local: t-local + 1
+                len: length? params-local
+                repeat idx len [
+                    g: gradients/:idx
+
+                    ; Update running average of squared gradients
+                    v-val: v-local/:idx
+                    g-sq: g * g
+                    new-v: (rho-local * v-val) + ((1 - rho-local) * g-sq)
+                    v-local/:idx: new-v
+
+                    ; Calculate parameter update
+                    sqrt-delta-eps: core/square-root (delta-local/:idx + epsilon-local)
+                    sqrt-v-eps: core/square-root (new-v + epsilon-local)
+                    param-update: - (sqrt-delta-eps / sqrt-v-eps) * g
+
+                    ; Update running average of squared parameter updates
+                    delta-val: delta-local/:idx
+                    update-sq: param-update * param-update
+                    new-delta: (rho-local * delta-val) + ((1 - rho-local) * update-sq)
+                    delta-local/:idx: new-delta
+
+                    ; Update parameters
+                    params-local/:idx: params-local/:idx + param-update
+                ]
+            ]
+            
+            zero-grad: func [] [
+                ; Reset running averages
+                len: length? v-local
+                repeat idx len [
+                    v-local/:idx: 0.0
+                    delta-local/:idx: 0.0
+                ]
+            ]
+        ]
+    ]
+
+    ;; Learning rate scheduler
+    lr-scheduler: context [
+        ;; Step learning rate scheduler - optimized version
+        step-lr: func [
+            "Step learning rate scheduler"
+            optimizer [object!] "Optimizer to schedule"
+            step-size [integer!] "Period of learning rate decay"
+            gamma [number!] "Multiplicative factor of learning rate decay (default 0.1)"
+        ] [
+            opt-ref: optimizer
+            step-size-local: step-size
+            gamma-local: either gamma [gamma] [0.1]
+            last-epoch: 0
+
+            make object! [
+                optimizer: opt-ref
+                step-size: step-size-local
+                gamma: gamma-local
+                last-epoch: last-epoch
+
+                step: func [epoch] [
+                    if (epoch // step-size-local) = 0 [
+                        if epoch > last-epoch [
+                            opt-ref/lr: opt-ref/lr * gamma-local
+                            last-epoch: epoch
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+        ;; Exponential learning rate scheduler - optimized version
+        exp-lr: func [
+            "Exponential learning rate scheduler"
+            optimizer [object!] "Optimizer to schedule"
+            gamma [number!] "Multiplicative factor of learning rate decay"
+        ] [
+            opt-ref: optimizer
+            gamma-local: gamma
+            last-epoch: 0
+
+            make object! [
+                optimizer: opt-ref
+                gamma: gamma-local
+                last-epoch: last-epoch
+
+                step: func [epoch] [
+                    if epoch > last-epoch [
+                        opt-ref/lr: opt-ref/lr * gamma-local
+                        last-epoch: epoch
+                    ]
+                ]
+            ]
+        ]
+    ]
+
 ]
