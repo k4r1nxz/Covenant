@@ -3,10 +3,10 @@ REBOL [
     Description: "Simple test to verify Covenant AI Framework functionality"
     Version: 1.1.0
     Author: "Karina Mikhailovna Chernykh"
-]
+]https://github.com/k4r1nxz/Covenant/edit/main/simple-test.reb
 
 ;; Load the Covenant framework
-do %covenant.r
+do %covenant.reb
 
 print "Covenant AI Framework - Simple Functionality Test"
 print "================================================="
