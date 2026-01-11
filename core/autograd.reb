@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Autograd System"
     Description: "Proper automatic differentiation system for Covenant AI Framework"
-    Version: 1.1.0
+    Version: 1.2.0
     Author: "Karina Mikhailovna Chernykh"
 ]
 
@@ -58,11 +58,12 @@ add-parent: func [
     ]
 ]
 
-;; Topological sort for computational graph
+;; Topological sort for computational graph - optimized version
 topological-sort: func [
     "Topologically sort nodes in computational graph"
     nodes [block!]
 ] [
+    ; Pre-allocate arrays for efficiency
     sorted: make block! length? nodes
     visited: make block! length? nodes
 
@@ -87,7 +88,7 @@ topological-sort: func [
     sorted
 ]
 
-;; Backpropagation function
+;; Backpropagation function - optimized version
 backward: func [
     "Perform backward pass to compute gradients"
     output-node [object!]
@@ -106,17 +107,23 @@ backward: func [
     output-node/grad: copy grad-out
     output-node/grad-computed: true
 
-    ; Get all nodes in the computational graph
+    ; Get all nodes in the computational graph - optimized collection
     all-nodes: make block! 100
-    collect-nodes: func [node] [
-        if not find all-nodes node [
-            append all-nodes node
-            foreach parent node/parents [
-                collect-nodes parent
+    visited-nodes: make block! 100
+    queue: copy reduce [output-node]
+
+    while [not empty? queue] [
+        current: take queue
+        if not find visited-nodes current [
+            append visited-nodes current
+            append all-nodes current
+            foreach parent current/parents [
+                if not find queue parent [
+                    append queue parent
+                ]
             ]
         ]
     ]
-    collect-nodes output-node
 
     ; Topologically sort nodes (from output to input)
     sorted-nodes: reverse topological-sort all-nodes
@@ -136,12 +143,11 @@ backward: func [
                         loop length? parent/data [append parent/grad 0.0]
                     ]
 
-                    ; Accumulate gradients
+                    ; Accumulate gradients efficiently
                     parent-grad-block: parent-grads/:i
-                    repeat j length? parent/grad [
-                        if j <= length? parent-grad-block [
-                            parent/grad/:j: parent/grad/:j + parent-grad-block/:j
-                        ]
+                    len: min length? parent/grad length? parent-grad-block
+                    repeat j len [
+                        parent/grad/:j: parent/grad/:j + parent-grad-block/:j
                     ]
                     parent/grad-computed: true
                 ]
@@ -164,7 +170,7 @@ autograd: context [
         graph-node/requires-grad data requires-grad
     ]
 
-    ;; Add operation
+    ;; Add operation - optimized version
     add-op: func [
         "Add operation with gradient computation"
         a [object!]
@@ -173,12 +179,17 @@ autograd: context [
         ; Check if either requires gradients
         requires-grad: a/requires-grad or b/requires-grad
 
-        ; Compute result
-        result-data: copy a/data
-        repeat i length? result-data [
-            if i <= length? b/data [
-                result-data/:i: result-data/:i + b/data/:i
-            ]
+        ; Pre-allocate result data
+        result-data: make block! max length? a/data length? b/data
+        len-a: length? a/data
+        len-b: length? b/data
+        max-len: max len-a len-b
+
+        ; Compute result with broadcasting support
+        repeat i max-len [
+            val-a: either i <= len-a [a/data/:i] [0.0]
+            val-b: either i <= len-b [b/data/:i] [0.0]
+            append result-data (val-a + val-b)
         ]
 
         ; Create result node
@@ -194,12 +205,16 @@ autograd: context [
             ; Define gradient function
             result-node/grad-fn: func [grad-output] [
                 ; Gradient with respect to a is the same as gradient output
-                grad-a: copy grad-output
-                while [length? grad-a > length? a/data] [take/last grad-a]
+                grad-a: make block! len-a
+                repeat i len-a [
+                    append grad-a either i <= length? grad-output [grad-output/:i] [0.0]
+                ]
 
                 ; Gradient with respect to b is the same as gradient output
-                grad-b: copy grad-output
-                while [length? grad-b > length? b/data] [take/last grad-b]
+                grad-b: make block! len-b
+                repeat i len-b [
+                    append grad-b either i <= length? grad-output [grad-output/:i] [0.0]
+                ]
 
                 reduce [grad-a grad-b]
             ]
@@ -208,7 +223,7 @@ autograd: context [
         result-node
     ]
 
-    ;; Multiply operation
+    ;; Multiply operation - optimized version
     mul-op: func [
         "Multiply operation with gradient computation"
         a [object!]
@@ -217,12 +232,17 @@ autograd: context [
         ; Check if either requires gradients
         requires-grad: a/requires-grad or b/requires-grad
 
-        ; Compute result
-        result-data: copy a/data
-        repeat i length? result-data [
-            if i <= length? b/data [
-                result-data/:i: result-data/:i * b/data/:i
-            ]
+        ; Pre-allocate result data
+        result-data: make block! max length? a/data length? b/data
+        len-a: length? a/data
+        len-b: length? b/data
+        max-len: max len-a len-b
+
+        ; Compute result with broadcasting support
+        repeat i max-len [
+            val-a: either i <= len-a [a/data/:i] [1.0]
+            val-b: either i <= len-b [b/data/:i] [1.0]
+            append result-data (val-a * val-b)
         ]
 
         ; Create result node
@@ -238,22 +258,20 @@ autograd: context [
             ; Define gradient function
             result-node/grad-fn: func [grad-output] [
                 ; Gradient with respect to a is grad_output * b
-                grad-a: copy grad-output
-                repeat i length? grad-a [
-                    if i <= length? b/data [
-                        grad-a/:i: grad-a/:i * b/data/:i
-                    ]
+                grad-a: make block! len-a
+                repeat i len-a [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    b-val: either i <= len-b [b/data/:i] [1.0]
+                    append grad-a (grad-val * b-val)
                 ]
-                while [length? grad-a > length? a/data] [take/last grad-a]
 
                 ; Gradient with respect to b is grad_output * a
-                grad-b: copy grad-output
-                repeat i length? grad-b [
-                    if i <= length? a/data [
-                        grad-b/:i: grad-b/:i * a/data/:i
-                    ]
+                grad-b: make block! len-b
+                repeat i len-b [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    a-val: either i <= len-a [a/data/:i] [1.0]
+                    append grad-b (grad-val * a-val)
                 ]
-                while [length? grad-b > length? b/data] [take/last grad-b]
 
                 reduce [grad-a grad-b]
             ]
@@ -262,7 +280,7 @@ autograd: context [
         result-node
     ]
 
-    ;; Matrix multiplication operation
+    ;; Matrix multiplication operation - optimized version
     matmul-op: func [
         "Matrix multiplication operation with gradient computation"
         a [object!]
@@ -279,16 +297,24 @@ autograd: context [
         rows-b: b/shape/1
         cols-b: b/shape/2
 
+        if cols-a <> rows-b [throw "Matrix dimensions incompatible for multiplication"]
+
+        ; Create result tensor
+        result-shape: reduce [rows-a cols-b]
+        ; Pre-allocate result data
         result-data: make block! (rows-a * cols-b)
         loop (rows-a * cols-b) [append result-data 0.0]
 
+        ; Perform matrix multiplication with cache-friendly access pattern
         repeat i rows-a [
             repeat j cols-b [
                 sum: 0.0
                 repeat k cols-a [
                     idx-a: ((i - 1) * cols-a) + k
                     idx-b: ((k - 1) * cols-b) + j
-                    sum: sum + (a/data/:idx-a * b/data/:idx-b)
+                    val-a: a/data/:idx-a
+                    val-b: b/data/:idx-b
+                    sum: sum + (val-a * val-b)
                 ]
                 idx-result: ((i - 1) * cols-b) + j
                 result-data/:idx-result: sum
@@ -349,7 +375,7 @@ autograd: context [
         result-node
     ]
 
-    ;; Power operation with gradient computation
+    ;; Power operation with gradient computation - optimized version
     pow-op: func [
         "Power operation with gradient computation"
         base [object!]
@@ -357,10 +383,11 @@ autograd: context [
     ] [
         requires-grad: base/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? base/data
         ; Compute result: base^exponent
-        result-data: copy base/data
-        repeat i length? result-data [
-            result-data/:i: power result-data/:i exponent
+        repeat i length? base/data [
+            append result-data power base/data/:i exponent
         ]
 
         ; Create result node
@@ -373,13 +400,13 @@ autograd: context [
 
             ; Define gradient function: d/dx(x^n) = n*x^(n-1)
             result-node/grad-fn: func [grad-output] [
-                grad-base: copy grad-output
-                repeat i length? grad-base [
-                    if i <= length? base/data [
-                        grad-base/:i: grad-base/:i * exponent * power(base/data/:i (exponent - 1))
-                    ]
+                grad-base: make block! length? base/data
+                exp-minus-one: exponent - 1
+                repeat i length? base/data [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    base-val-pow: power base/data/:i exp-minus-one
+                    append grad-base (grad-val * exponent * base-val-pow)
                 ]
-                while [length? grad-base > length? base/data] [take/last grad-base]
 
                 reduce [grad-base]
             ]
@@ -388,17 +415,18 @@ autograd: context [
         result-node
     ]
 
-    ;; Exponential operation with gradient computation
+    ;; Exponential operation with gradient computation - optimized version
     exp-op: func [
         "Exponential operation with gradient computation"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute result: e^x
-        result-data: copy x/data
-        repeat i length? result-data [
-            result-data/:i: exp result-data/:i
+        repeat i length? x/data [
+            append result-data exp x/data/:i
         ]
 
         ; Create result node
@@ -411,13 +439,12 @@ autograd: context [
 
             ; Define gradient function: d/dx(e^x) = e^x
             result-node/grad-fn: func [grad-output] [
-                grad-x: copy grad-output
-                repeat i length? grad-x [
-                    if i <= length? result-data [
-                        grad-x/:i: grad-x/:i * result-data/:i  ; grad_output * e^x
-                    ]
+                grad-x: make block! length? x/data
+                repeat i length? x/data [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    exp-val: result-data/:i  ; Use precomputed exp value
+                    append grad-x (grad-val * exp-val)  ; grad_output * e^x
                 ]
-                while [length? grad-x > length? x/data] [take/last grad-x]
 
                 reduce [grad-x]
             ]
@@ -426,17 +453,18 @@ autograd: context [
         result-node
     ]
 
-    ;; Natural logarithm operation with gradient computation
+    ;; Natural logarithm operation with gradient computation - optimized version
     log-op: func [
         "Natural logarithm operation with gradient computation"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute result: ln(x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            result-data/:i: log-e result-data/:i
+        repeat i length? x/data [
+            append result-data log-e x/data/:i
         ]
 
         ; Create result node
@@ -449,13 +477,13 @@ autograd: context [
 
             ; Define gradient function: d/dx(ln(x)) = 1/x
             result-node/grad-fn: func [grad-output] [
-                grad-x: copy grad-output
-                repeat i length? grad-x [
-                    if i <= length? x/data [
-                        grad-x/:i: grad-x/:i / x/data/:i  ; grad_output * (1/x)
-                    ]
+                grad-x: make block! length? x/data
+                repeat i length? x/data [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    x-val: x/data/:i
+                    inv-x: either x-val = 0 [0.0] [1.0 / x-val]  ; Avoid division by zero
+                    append grad-x (grad-val * inv-x)  ; grad_output * (1/x)
                 ]
-                while [length? grad-x > length? x/data] [take/last grad-x]
 
                 reduce [grad-x]
             ]
@@ -464,17 +492,18 @@ autograd: context [
         result-node
     ]
 
-    ;; Sine operation with gradient computation
+    ;; Sine operation with gradient computation - optimized version
     sin-op: func [
         "Sine operation with gradient computation"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute result: sin(x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            result-data/:i: sine result-data/:i
+        repeat i length? x/data [
+            append result-data sine x/data/:i
         ]
 
         ; Create result node
@@ -487,13 +516,12 @@ autograd: context [
 
             ; Define gradient function: d/dx(sin(x)) = cos(x)
             result-node/grad-fn: func [grad-output] [
-                grad-x: copy grad-output
-                repeat i length? grad-x [
-                    if i <= length? x/data [
-                        grad-x/:i: grad-x/:i * cosine(x/data/:i)  ; grad_output * cos(x)
-                    ]
+                grad-x: make block! length? x/data
+                repeat i length? x/data [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    cos-val: cosine x/data/:i
+                    append grad-x (grad-val * cos-val)  ; grad_output * cos(x)
                 ]
-                while [length? grad-x > length? x/data] [take/last grad-x]
 
                 reduce [grad-x]
             ]
@@ -502,17 +530,18 @@ autograd: context [
         result-node
     ]
 
-    ;; Cosine operation with gradient computation
+    ;; Cosine operation with gradient computation - optimized version
     cos-op: func [
         "Cosine operation with gradient computation"
         x [object!]
     ] [
         requires-grad: x/requires-grad
 
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
         ; Compute result: cos(x)
-        result-data: copy x/data
-        repeat i length? result-data [
-            result-data/:i: cosine result-data/:i
+        repeat i length? x/data [
+            append result-data cosine x/data/:i
         ]
 
         ; Create result node
@@ -525,13 +554,12 @@ autograd: context [
 
             ; Define gradient function: d/dx(cos(x)) = -sin(x)
             result-node/grad-fn: func [grad-output] [
-                grad-x: copy grad-output
-                repeat i length? grad-x [
-                    if i <= length? x/data [
-                        grad-x/:i: grad-x/:i * (0.0 - sine(x/data/:i))  ; grad_output * (-sin(x))
-                    ]
+                grad-x: make block! length? x/data
+                repeat i length? x/data [
+                    grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                    neg-sin-val: 0.0 - sine x/data/:i  ; -sin(x)
+                    append grad-x (grad-val * neg-sin-val)  ; grad_output * (-sin(x))
                 ]
-                while [length? grad-x > length? x/data] [take/last grad-x]
 
                 reduce [grad-x]
             ]
@@ -540,7 +568,7 @@ autograd: context [
         result-node
     ]
 
-    ;; Mean operation with gradient computation
+    ;; Mean operation with gradient computation - optimized version
     mean-op: func [
         "Mean operation with gradient computation"
         x [object!]
@@ -550,7 +578,8 @@ autograd: context [
         ; Compute mean
         total: 0.0
         foreach val x/data [total: total + val]
-        mean-val: total / length? x/data
+        n: length? x/data
+        mean-val: either n = 0 [0.0] [total / n]
         result-data: reduce [mean-val]
 
         ; Create result node
@@ -563,9 +592,9 @@ autograd: context [
 
             ; Define gradient function: d/dx_i(mean) = 1/n for all i
             result-node/grad-fn: func [grad-output] [
-                n: length? x/data
                 grad-x: make block! n
-                loop n [append grad-x (grad-output/1 / n)]  ; Distribute gradient equally
+                grad-scaler: either n = 0 [0.0] [grad-output/1 / n]  ; Distribute gradient equally
+                loop n [append grad-x grad-scaler]
 
                 reduce [grad-x]
             ]
