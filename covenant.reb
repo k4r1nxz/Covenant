@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant AI Framework"
     Description: "A REBOL-based AI framework for machine learning and neural networks"
-    Version: 1.1.0
+    Version: 1.2.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
@@ -16,6 +16,10 @@ do %core/central-graph.reb
 do %nn/nn.reb
 do %optim/optim.reb
 do %utils/utils.reb
+do %testing/testing.reb
+do %logging/logging.reb
+do %metrics/metrics.reb
+do %preprocessing/preprocessing.reb
 
 ;; Define function references first
 tensor-func: get in core 'tensor
@@ -72,6 +76,43 @@ save-model-func: get in utils 'save-model
 visualize-func: get in utils 'visualize
 load-model-func: get in utils 'load-model
 evaluate-func: get in utils 'evaluate
+serialize-func: get in utils 'serialize
+deserialize-func: get in utils 'deserialize
+pprint-func: get in utils 'pprint
+validate-tensor-func: get in utils 'validate-tensor
+
+;; Testing functions
+assert-equal-func: get in testing 'assert-equal
+assert-true-func: get in testing 'assert-true
+assert-false-func: get in testing 'assert-false
+run-tests-func: get in testing 'run-tests
+report-func: get in testing 'report
+
+;; Logging functions
+set-log-level-func: get in logging 'set-level
+log-debug-func: get in logging 'debug
+log-info-func: get in logging 'info
+log-warning-func: get in logging 'warning
+log-error-func: get in logging 'error
+log-critical-func: get in logging 'critical
+
+;; Metrics functions
+accuracy-func: get in metrics 'accuracy
+precision-func: get in metrics 'precision
+recall-func: get in metrics 'recall
+f1-score-func: get in metrics 'f1-score
+mae-func: get in metrics 'mae
+rmse-func: get in metrics 'rmse
+r-squared-func: get in metrics 'r-squared
+confusion-matrix-func: get in metrics 'confusion-matrix
+
+;; Preprocessing functions
+min-max-normalize-func: get in preprocessing 'min-max-normalize
+standardize-func: get in preprocessing 'standardize
+one-hot-encode-func: get in preprocessing 'one-hot-encode
+train-test-split-func: get in preprocessing 'train-test-split
+pad-sequences-func: get in preprocessing 'pad-sequences
+tokenizer-func: get in preprocessing 'tokenizer
 
 ;; Define the covenant namespace after all modules are loaded
 covenant: make object! [
@@ -161,7 +202,52 @@ covenant: make object! [
         visualize: :visualize-func
         load-model: :load-model-func
         evaluate: :evaluate-func
+        serialize: :serialize-func
+        deserialize: :deserialize-func
+        pprint: :pprint-func
+        validate_tensor: :validate-tensor-func
+    ]
+
+    ;; Testing framework
+    testing: make object! [
+        assert_equal: :assert-equal-func
+        assert_true: :assert-true-func
+        assert_false: :assert-false-func
+        run_tests: :run-tests-func
+        report: :report-func
+    ]
+
+    ;; Logging system
+    logging: make object! [
+        set_level: :set-log-level-func
+        debug: :log-debug-func
+        info: :log-info-func
+        warning: :log-warning-func
+        error: :log-error-func
+        critical: :log-critical-func
+    ]
+
+    ;; Evaluation metrics
+    metrics: make object! [
+        accuracy: :accuracy-func
+        precision: :precision-func
+        recall: :recall-func
+        f1_score: :f1-score-func
+        mae: :mae-func
+        rmse: :rmse-func
+        r_squared: :r-squared-func
+        confusion_matrix: :confusion-matrix-func
+    ]
+
+    ;; Data preprocessing
+    preprocessing: make object! [
+        min_max_normalize: :min-max-normalize-func
+        standardize: :standardize-func
+        one_hot_encode: :one-hot-encode-func
+        train_test_split: :train-test-split-func
+        pad_sequences: :pad-sequences-func
+        tokenizer: :tokenizer-func
     ]
 ]
 
-print "Covenant AI Framework v1.1.0 loaded successfully"
+print "Covenant AI Framework v1.2.0 loaded successfully"
