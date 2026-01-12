@@ -1,4 +1,4 @@
-# Covenant
+# Covenant 
 
 **Covenant** is an AI and automatic differentiation framework written in **REBOL**.
 
