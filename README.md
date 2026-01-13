@@ -10,7 +10,7 @@ Its focus is on understanding, control, and explicit computation rather than sca
 
 ---
 
-## Purpose
+## Purpose 
 
 Covenant exists to explore how an AI framework can be designed when:
 - execution order is explicit
