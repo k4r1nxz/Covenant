@@ -40,6 +40,7 @@ Covenant is intentionally conservative in its design choices.
 
 ### Performance Optimizations
 - **Memory Efficiency**: Optimized memory usage with pre-allocation strategies
+- **Improved Memory Management**: Better handling of temporary objects and reduced memory allocations
 - **Speed Improvements**: Up to 40% faster tensor operations
 - **CPU Optimized**: Designed for efficient CPU-only computation
 - **Low Memory Footprint**: Peak memory usage under 2GB for typical operations
@@ -54,7 +55,7 @@ Covenant is intentionally conservative in its design choices.
 
 ### Neural Network Components
 - Linear (fully connected) layers
-- Activation functions: ReLU, Leaky ReLU, Sigmoid, Tanh, Softmax
+- Activation functions: ReLU, Leaky ReLU, Sigmoid, Tanh, Swish, GELU, Softmax
 - Loss functions: MSE, Cross Entropy
 - Convolutional layers (1D)
 - Normalization: BatchNorm1d
