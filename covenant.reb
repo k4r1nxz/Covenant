@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant AI Framework"
     Description: "A REBOL-based AI framework for machine learning and neural networks"
-    Version: 1.2.0
+    Version: 1.3.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
@@ -51,6 +51,8 @@ relu-func: get in nn 'relu
 leaky-relu-func: get in nn 'leaky-relu
 sigmoid-func: get in nn 'sigmoid
 tanh-func: get in nn 'tanh
+swish-func: get in nn 'swish
+gelu-func: get in nn 'gelu
 softmax-func: get in nn 'softmax
 mse-loss-func: get in nn 'mse-loss
 cross-entropy-loss-func: get in nn 'cross-entropy-loss
@@ -168,6 +170,8 @@ covenant: make object! [
         leaky_relu: :leaky-relu-func
         sigmoid: :sigmoid-func
         tanh: :tanh-func
+        swish: :swish-func
+        gelu: :gelu-func
         softmax: :softmax-func
         mse_loss: :mse-loss-func
         cross_entropy_loss: :cross-entropy-loss-func
