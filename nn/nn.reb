@@ -554,6 +554,220 @@ nn: context [
         result-var
     ]
 
+    ;; Swish activation function (x * sigmoid(x)) with gradient computation - optimized version
+    swish: func [
+        "Swish activation function (x * sigmoid(x)) with gradient tracking"
+        x [object!]
+        /beta "Beta parameter (default 1.0)"
+        beta-val [number!] "Beta value for Swish function"
+    ] [
+        requires-grad: x/requires-grad
+        beta-value: either beta [beta-val] [1.0]
+
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
+        ; Compute sigmoid for each element: 1 / (1 + e^(-beta*x))
+        sigmoid-values: make block! length? x/data
+        repeat i length? x/data [
+            neg-x: 0.0 - (beta-value * x/data/:i)
+            exp-val: core/exp neg-x
+            sig-val: 1.0 / (1.0 + exp-val)
+            append sigmoid-values sig-val
+            append result-data (x/data/:i * sig-val)
+        ]
+
+        ; Create gradient function: grad_output * (swish(x) + sigmoid(x) * (1 - beta * swish(x)))
+        grad-fn: func [grad-output] [
+            grad-input: make block! length? x/data
+            repeat i length? x/data [
+                sig-val: sigmoid-values/:i
+                swish-val: result-data/:i
+                grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                grad-component: swish-val + (sig-val * (1.0 - (beta-value * swish-val)))
+                append grad-input (grad-val * grad-component)
+            ]
+            reduce [grad-input]
+        ]
+
+        ; Create result variable
+        result-var: make object! [
+            data: result-data
+            shape: x/shape
+            dtype: x/dtype
+            grad: none
+            requires-grad: requires-grad
+            grad-fn: grad-fn
+            parents: reduce [x]
+            children: make block! 0
+            is-leaf: false
+
+            set-requires-grad: func [flag [logic!]] [
+                self/requires-grad: flag
+                if flag and not self/grad [
+                    self/grad: make block! length? self/data
+                    loop length? self/data [append self/grad 0.0]
+                ]
+            ]
+
+            zero-grad: func [] [
+                if self/grad [
+                    repeat i length? self/grad [
+                        self/grad/:i: 0.0
+                    ]
+                ]
+            ]
+
+            backward: func [/gradient grad-data [block!]] [
+                if not gradient [
+                    grad-data: make block! length? self/data
+                    loop length? self/data [append grad-data 1.0]
+                ]
+
+                if self/requires-grad [
+                    if not self/grad [
+                        self/grad: make block! length? self/data
+                        loop length? self/data [append self/grad 0.0]
+                    ]
+
+                    repeat i length? self/grad [
+                        if i <= length? grad-data [
+                            self/grad/:i: self/grad/:i + grad-data/:i
+                        ]
+                    ]
+                ]
+
+                if self/grad-fn [
+                    parent-grads: self/grad-fn grad-data
+                    repeat i length? self/parents [
+                        parent: self/parents/:i
+                        parent-grad: parent-grads/:i
+                        parent/backward/gradient parent-grad
+                    ]
+                ]
+            ]
+        ]
+
+        ; Add as child to parent
+        append x/children result-var
+
+        result-var
+    ]
+
+    ;; GELU (Gaussian Error Linear Unit) activation function with gradient computation - optimized version
+    gelu: func [
+        "GELU activation function with gradient tracking"
+        x [object!]
+    ] [
+        requires-grad: x/requires-grad
+
+        ; Pre-allocate result data
+        result-data: make block! length? x/data
+
+        ; Compute GELU: x * Î¦(x) where Î¦(x) is the cumulative distribution function of the standard normal distribution
+        ; We'll approximate Î¦(x) with tanh approximation: 0.5 * (1 + tanh(sqrt(2/Ď€) * (x + 0.044715 * x^3)))
+        sqrt-two-over-pi: square-root (2.0 / pi)
+
+        repeat i length? x/data [
+            x-val: x/data/:i
+            x-cubed: x-val * x-val * x-val
+            tanh-arg: sqrt-two-over-pi * (x-val + (0.044715 * x-cubed))
+            phi-approx: 0.5 * (1.0 + core/tanh tanh-arg)
+            append result-data (x-val * phi-approx)
+        ]
+
+        ; Create gradient function: grad_output * (Î¦(x) + x * Ď†(x)) where Ď†(x) is pdf of standard normal
+        grad-fn: func [grad-output] [
+            grad-input: make block! length? x/data
+
+            ; Precompute constants
+            sqrt-two-over-pi: square-root (2.0 / pi)
+            sqrt-two-pi: square-root (2.0 * pi)
+
+            repeat i length? x/data [
+                x-val: x/data/:i
+                x-cubed: x-val * x-val * x-val
+                tanh-arg: sqrt-two-over-pi * (x-val + (0.044715 * x-cubed))
+
+                ; Compute Î¦(x) approximation
+                phi-approx: 0.5 * (1.0 + core/tanh tanh-arg)
+
+                ; Compute derivative of tanh approximation
+                tanh-squared: core/tanh(tanh-arg) * core/tanh(tanh-arg)
+                phi-prime-approx: 0.5 * sqrt-two-over-pi * (1.0 - tanh-squared) * (1.0 + (0.044715 * 3 * x-val * x-val))
+
+                ; GELU derivative: Î¦(x) + x * Ď†(x) â‰� Î¦(x) + x * phi_prime_approx
+                gelu-deriv: phi-approx + (x-val * phi-prime-approx)
+
+                grad-val: either i <= length? grad-output [grad-output/:i] [0.0]
+                append grad-input (grad-val * gelu-deriv)
+            ]
+            reduce [grad-input]
+        ]
+
+        ; Create result variable
+        result-var: make object! [
+            data: result-data
+            shape: x/shape
+            dtype: x/dtype
+            grad: none
+            requires-grad: requires-grad
+            grad-fn: grad-fn
+            parents: reduce [x]
+            children: make block! 0
+            is-leaf: false
+
+            set-requires-grad: func [flag [logic!]] [
+                self/requires-grad: flag
+                if flag and not self/grad [
+                    self/grad: make block! length? self/data
+                    loop length? self/data [append self/grad 0.0]
+                ]
+            ]
+
+            zero-grad: func [] [
+                if self/grad [
+                    repeat i length? self/grad [
+                        self/grad/:i: 0.0
+                    ]
+                ]
+            ]
+
+            backward: func [/gradient grad-data [block!]] [
+                if not gradient [
+                    grad-data: make block! length? self/data
+                    loop length? self/data [append grad-data 1.0]
+                ]
+
+                if self/requires-grad [
+                    if not self/grad [
+                        self/grad: make block! length? self/data
+                        loop length? self/data [append self/grad 0.0]
+                    ]
+
+                    repeat i length? self/grad [
+                        if i <= length? grad-data [
+                            self/grad/:i: self/grad/:i + grad-data/:i
+                        ]
+                    ]
+                ]
+
+                if self/grad-fn [
+                    parent-grads: self/grad-fn grad-data
+                    repeat i length? self/parents [
+                        parent: self/parents/:i
+                        parent-grad: parent-grads/:i
+                        parent/backward/gradient parent-grad
+                    ]
+                ]
+            ]
+        ]
+
+        ; Add as child to parent
+        append x/children result-var
+
+        result-var
+    ]
+
     ;; Softmax activation function with gradient computation - optimized version
     softmax: func [
         "Softmax activation function with gradient tracking"
