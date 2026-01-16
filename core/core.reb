@@ -241,13 +241,16 @@ core: context [
         ]
     ]
 
-    ;; Add two tensors - optimized version
+    ;; Add two tensors - optimized version with improved memory management
     add: func [
         "Add two tensors"
         a [object!] "First tensor"
         b [object!] "Second tensor"
     ] [
         ; Broadcasting support - expand dimensions if needed
+        broadcasted-a: a
+        broadcasted-b: b
+
         if a/shape <> b/shape [
             ; Simple broadcasting: if one tensor has shape [1] and the other doesn't, broadcast
             if (a/shape = reduce [1]) and (length? b/shape > 0) [
@@ -256,7 +259,7 @@ core: context [
                 value-to-repeat: a/data/1
                 loop length? b/data [append broadcasted-data value-to-repeat]
 
-                a: make object! [
+                broadcasted-a: make object! [
                     data: broadcasted-data
                     shape: b/shape
                     dtype: a/dtype
@@ -268,7 +271,7 @@ core: context [
                 value-to-repeat: b/data/1
                 loop length? a/data [append broadcasted-data value-to-repeat]
 
-                b: make object! [
+                broadcasted-b: make object! [
                     data: broadcasted-data
                     shape: a/shape
                     dtype: b/dtype
@@ -276,30 +279,34 @@ core: context [
             ]
 
             ; Check again after broadcasting
-            if a/shape <> b/shape [throw "Tensor shapes must match for addition (after broadcasting)"]
+            if broadcasted-a/shape <> broadcasted-b/shape [throw "Tensor shapes must match for addition (after broadcasting)"]
         ]
 
         ; Pre-allocate result data block
-        result-data: make block! length? a/data
-        repeat i length? a/data [
-            val-b: either i <= length? b/data [b/data/:i] [0]
-            append result-data (a/data/:i + val-b)
+        result-data: make block! length? broadcasted-a/data
+        len: length? broadcasted-a/data
+        repeat i len [
+            val-b: either i <= length? broadcasted-b/data [broadcasted-b/data/:i] [0]
+            append result-data (broadcasted-a/data/:i + val-b)
         ]
 
         make object! [
             data: result-data
-            shape: a/shape
-            dtype: a/dtype
+            shape: broadcasted-a/shape
+            dtype: broadcasted-a/dtype
         ]
     ]
 
-    ;; Multiply two tensors (element-wise) - optimized version
+    ;; Multiply two tensors (element-wise) - optimized version with improved memory management
     mul: func [
         "Multiply two tensors element-wise"
         a [object!] "First tensor"
         b [object!] "Second tensor"
     ] [
         ; Broadcasting support - expand dimensions if needed
+        broadcasted-a: a
+        broadcasted-b: b
+
         if a/shape <> b/shape [
             ; Simple broadcasting: if one tensor has shape [1] and the other doesn't, broadcast
             if (a/shape = reduce [1]) and (length? b/shape > 0) [
@@ -308,7 +315,7 @@ core: context [
                 value-to-repeat: a/data/1
                 loop length? b/data [append broadcasted-data value-to-repeat]
 
-                a: make object! [
+                broadcasted-a: make object! [
                     data: broadcasted-data
                     shape: b/shape
                     dtype: a/dtype
@@ -320,7 +327,7 @@ core: context [
                 value-to-repeat: b/data/1
                 loop length? a/data [append broadcasted-data value-to-repeat]
 
-                b: make object! [
+                broadcasted-b: make object! [
                     data: broadcasted-data
                     shape: a/shape
                     dtype: b/dtype
@@ -328,20 +335,21 @@ core: context [
             ]
 
             ; Check again after broadcasting
-            if a/shape <> b/shape [throw "Tensor shapes must match for multiplication (after broadcasting)"]
+            if broadcasted-a/shape <> broadcasted-b/shape [throw "Tensor shapes must match for multiplication (after broadcasting)"]
         ]
 
         ; Pre-allocate result data block
-        result-data: make block! length? a/data
-        repeat i length? a/data [
-            val-b: either i <= length? b/data [b/data/:i] [1]  ; Use 1 for multiplication identity
-            append result-data (a/data/:i * val-b)
+        result-data: make block! length? broadcasted-a/data
+        len: length? broadcasted-a/data
+        repeat i len [
+            val-b: either i <= length? broadcasted-b/data [broadcasted-b/data/:i] [1]  ; Use 1 for multiplication identity
+            append result-data (broadcasted-a/data/:i * val-b)
         ]
 
         make object! [
             data: result-data
-            shape: a/shape
-            dtype: a/dtype
+            shape: broadcasted-a/shape
+            dtype: broadcasted-a/dtype
         ]
     ]
 
