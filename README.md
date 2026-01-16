@@ -36,7 +36,7 @@ Covenant is intentionally conservative in its design choices.
 
 ---
 
-## Features (v1.2.0)
+## Features (v1.3.0)
 
 ### Performance Optimizations
 - **Memory Efficiency**: Optimized memory usage with pre-allocation strategies
