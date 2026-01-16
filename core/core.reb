@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Core Module"
     Description: "Core tensor operations and data structures for Covenant AI Framework"
-    Version: 1.2.0
+    Version: 1.3.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
