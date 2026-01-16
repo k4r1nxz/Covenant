@@ -1,7 +1,7 @@
 REBOL [
     Title: "Covenant Neural Network Module"
     Description: "Neural network components for Covenant AI Framework with autograd support"
-    Version: 1.2.0
+    Version: 1.3.0
     Author: "Karina Mikhailovna Chernykh"
     Rights: "BSD 2-Clause License"
 ]
